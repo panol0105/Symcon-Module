@@ -1,0 +1,11 @@
+{
+  "id": "{2F7B9D4C-8A16-4E3B-9C52-6D1E0A7F4B83}",
+  "name": "FensterTuerTor",
+  "type": 3,
+  "vendor": "",
+  "aliases": [],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "FTT"
+}

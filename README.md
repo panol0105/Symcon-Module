@@ -4,7 +4,21 @@ Module für IP-Symcon ab Version 7 (getestet für 9.x), Kachel-Visualisierung.
 
 - **LampenListe**: mehrere Lampen in einer Kachel als Liste (Schalten, Dimmer, Tunable White, RGBW)
 - **KlimaKachel**: ein Klima-Innengerät über das Intesis/HMS-Gateway IN776-MHI per KNX (runder Temperatur-Slider, Betriebsart, Lüfter, Lamellen, Meldungen, Fernbedienungssperre, Zeitschaltuhr)
+- **FensterTuerTor**: Fenster, Türen und Tore in einer Liste; mit Öffnen/Schließen-Adressen bedienbar, sonst nur Statusanzeige
 - **KlimaGruppe**: mehrere KlimaKachel-Instanzen eines Raums als ein Gerät, parallel gesteuert, mit gemeinsamer Auswertung der Rückmeldungen
+
+## Fenster, Türen und Tore
+
+Pro Eintrag: Name, Art (Tor, Tür, Fenster) und die Gruppenadressen (alle DPT 1.001):
+
+| Spalte | Bedeutung |
+|---|---|
+| GA Öffnen / GA Schließen | Befehl, es wird eine 1 gesendet. Leer = nur Statusanzeige |
+| GA geöffnet / GA geschlossen | Endlagen-Rückmeldungen. Eine davon reicht (z. B. Fensterkontakt nur „geöffnet“) |
+| Laufzeit | so lange zeigt die Kachel nach einem Befehl „Öffnet …“ / „Schließt …“ mit Fortschrittsbalken |
+| Nachfragen | Befehl muss in der Kachel ein zweites Mal bestätigt werden (empfohlen für Tore) |
+
+Zustände: Geöffnet, Geschlossen, Zwischenstellung (keine Endlage gemeldet), Endlagen-Fehler (beide gleichzeitig), Keine Rückmeldung. Wird die Endlage innerhalb der Laufzeit nicht erreicht, zeigt die Kachel einen Hinweis.
 
 ## Schrift
 

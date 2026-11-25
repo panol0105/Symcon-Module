@@ -1,0 +1,36 @@
+{
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Aktiv" },
+    { "code": 201, "icon": "error", "caption": "Mindestens eine Gruppenadresse konnte nicht angelegt werden (Details im Meldungen-Fenster)" },
+    { "code": 202, "icon": "error", "caption": "KNX-Instanzen sind mit keinem KNX-Gateway verbunden. Bitte Gateway unter „KNX-Gruppenadressen“ auswählen." }
+  ],
+  "elements": [
+    {
+      "type": "List",
+      "name": "Items",
+      "caption": "Fenster, Türen und Tore (ohne Öffnen/Schließen-Adresse wird nur der Status angezeigt)",
+      "add": true,
+      "delete": true,
+      "changeOrder": true,
+      "rowCount": 8,
+      "columns": [
+        { "caption": "Name", "name": "Name", "width": "170px", "add": "Tor", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "Art", "name": "Kind", "width": "100px", "add": "gate",
+          "edit": { "type": "Select", "options": [
+            { "caption": "Tor", "value": "gate" },
+            { "caption": "Tür", "value": "door" },
+            { "caption": "Fenster", "value": "window" }
+          ] } },
+        { "caption": "GA Öffnen", "name": "GA_Open", "width": "100px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Schließen", "name": "GA_Close", "width": "110px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA geöffnet", "name": "GA_IsOpen", "width": "100px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA geschlossen", "name": "GA_IsClosed", "width": "120px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "Laufzeit (s)", "name": "RunTime", "width": "100px", "add": 60, "edit": { "type": "NumberSpinner", "minimum": 5, "maximum": 600 } },
+        { "caption": "Nachfragen", "name": "Confirm", "width": "100px", "add": true, "edit": { "type": "CheckBox" } },
+        { "caption": "oder Variable geöffnet", "name": "IsOpenID", "width": "170px", "add": 0, "edit": { "type": "SelectVariable" } },
+        { "caption": "oder Variable geschlossen", "name": "IsClosedID", "width": "auto", "add": 0, "edit": { "type": "SelectVariable" } }
+      ]
+    },
+    { "type": "Label", "caption": "Öffnen/Schließen senden je eine 1 (DPT 1.001). „Nachfragen“: Der Befehl muss in der Kachel ein zweites Mal bestätigt werden. „Laufzeit“: so lange gilt das Tor nach einem Befehl als „in Bewegung“." }
+  ]
+}
