@@ -48,7 +48,19 @@
   .day { width:30px; height:30px; border-radius:50%; border:none; background:#fff; color:var(--sub); font-size:11px; cursor:pointer; }
   .day.sel { background:var(--mc); color:#fff; }
   input, select { background:#fff; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:5px; }
-  .act-btn { border:none; border-radius:10px; padding:8px 12px; cursor:pointer; background:var(--mc); color:#fff; font-weight:500; }
+  .act-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--line); border-radius:10px;
+             padding:9px 14px; cursor:pointer; background:#fff; color:var(--txt); font-weight:500; font-size:14px;
+             transition:background .15s, color .15s, border-color .15s, transform .08s; }
+  .act-btn:hover { background:var(--cell); }
+  .act-btn:active { transform:scale(.96); background:#dfe6f0; }
+  .act-btn.primary { background:var(--mc); border-color:var(--mc); color:#fff; }
+  .act-btn.busy { cursor:wait; color:var(--sub); background:var(--cell); }
+  .act-btn.done { background:var(--okbg); border-color:var(--okbg); color:var(--ok); }
+  .act-btn svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .spin { width:14px; height:14px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .acts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+  .acts .act-btn { width:100%; }
   .ghost { background:var(--cell); color:var(--txt); }
   .del { background:var(--errbg); color:var(--err); }
   .btn { display:inline-flex; align-items:center; justify-content:center; }
@@ -100,7 +112,7 @@
   <div class="box">
     <h3>Status</h3>
     <div id="ibody"></div>
-    <div class="rowx" id="ibtns"></div>
+    <div class="acts" id="ibtns"></div>
     <div class="rowx end"><button class="act-btn ghost" id="iclose">Schließen</button></div>
   </div>
 </div>
@@ -113,7 +125,7 @@
       <button class="act-btn ghost" id="tadd">+ Schaltzeit</button>
       <div class="rowx" style="margin-top:0">
         <button class="act-btn ghost" id="tcancel">Abbrechen</button>
-        <button class="act-btn" id="tsave">Speichern</button>
+        <button class="act-btn primary" id="tsave">Speichern</button>
       </div>
     </div>
   </div>
@@ -159,6 +171,8 @@
   // (höchstens HOLD ms). So springt die Anzeige nicht zwischen alt und neu.
   const HOLD = 10000;
   const pending = {};
+  const unconfirmed = {};   // Befehle ohne Bestätigung vom Gerät
+  const LABEL = { power: 'Ein/Aus', mode: 'Betriebsart', set: 'Solltemperatur', fan: 'Lüfter', vane: 'Lamellen', swing: 'Swing', lock: 'Sperre' };
   let real = { has: {} }, holdTimer = null;
   const same = (a, b) => (typeof a === 'number' && typeof b === 'number') ? Math.abs(a - b) < 0.05 : a === b;
 
@@ -174,7 +188,8 @@
     const now = Date.now();
     for (const k in pending) {
       const p = pending[k];
-      if (now > p.until || same(state[k], p.v)) delete pending[k];   // bestätigt oder abgelaufen
+      if (same(state[k], p.v)) { delete pending[k]; delete unconfirmed[k]; continue; }   // bestätigt
+      if (now > p.until) { unconfirmed[k] = { v: p.v, t: now }; delete pending[k]; continue; }   // keine Bestätigung
       else st[k] = p.v;                                                // noch unterwegs
     }
     return st;
@@ -185,6 +200,7 @@
     if (msg && msg.chart) { drawChart(msg.chart); return; }   // Antwort auf die Diagramm-Anfrage
     real = msg;
     real.has = real.has || {};
+    for (const k in unconfirmed) if (same(real[k], unconfirmed[k].v)) delete unconfirmed[k];   // doch noch bestätigt
     s = applyPending(real);
     render();
     if ($('info').classList.contains('show')) renderInfo();
@@ -252,9 +268,12 @@
     if (s.comm) add('⚠ Keine Verbindung', 'err', openInfo);
     if (s.err) add('⚠ ' + s.errText, 'err', openInfo);
     if (s.filter) add('Filter reinigen', 'warn', openInfo);
+    const unc = Object.keys(unconfirmed).filter(k => Date.now() - unconfirmed[k].t < 120000).map(k => LABEL[k] || k);
+    if (unc.length) add('Nicht bestätigt: ' + unc.join(', '), 'warn', openInfo);
+    (s.noFeedback || []).forEach(n => add('Keine Rückmeldung: ' + n, 'warn', openInfo));
     if (s.has.lock && s.lock) add('Fernbedienung gesperrt · freigeben', 'warn', () => { hold('lock', false); render(); requestAction('lock', false); });
     if (s.power && s.comp === true) add('Verdichter läuft', 'ok');
-    if (!s.comm && !s.err && !s.filter && !(s.has.lock && s.lock) && (s.comm !== null || s.errCode !== null)) add('Alle Werte OK', 'ok');
+    if (!s.comm && !s.err && !s.filter && !(s.has.lock && s.lock) && (s.comm !== null || s.errCode !== null)) { if (!unc.length && !(s.noFeedback || []).length) add('Alle Werte OK', 'ok'); }
   }
 
   function drawDial(v) {
@@ -314,22 +333,23 @@
     if (s.comp !== null) h += r('Verdichter', s.comp ? 'Ein' : 'Aus');
     if (s.thermo !== null) h += r('Thermo', s.thermo ? 'Ein' : 'Aus');
     if (s.lock !== null) h += r('Fernbedienung', s.lock ? 'Gesperrt' : 'Frei');
+    if ((s.noFeedback || []).length) h += r('Keine Rückmeldung', s.noFeedback.map(esc).join('<br>'), 'yel');
     h += r('Ist-Temperatur', fmt(s.act) + ' °C');
     (s.diag || []).forEach(d => h += r(esc(d.n), esc(d.v)));
     $('ibody').innerHTML = h;
 
     const b = $('ibtns');
     b.innerHTML = '';
-    const btn = (t, fn) => {
+    const btn = (key, icon, t, fn, ok) => {
       const x = document.createElement('button');
       x.className = 'act-btn';
-      x.textContent = t;
-      x.onclick = fn;
+      decorate(x, key, PI[icon] + t);
+      x.onclick = () => pressed(key, fn, ok);
       b.appendChild(x);
     };
-    if (s.has.errReset) btn('Störung zurücksetzen', () => requestAction('errReset', true));
-    if (s.has.filterReset) btn('Filter zurücksetzen', () => requestAction('filterReset', true));
-    if (s.lock !== null) btn(s.lock ? 'Fernbedienung freigeben' : 'Fernbedienung sperren', () => { const v = !s.lock; hold('lock', v); render(); renderInfo(); requestAction('lock', v); });
+    if (s.has.errReset) btn('errReset', 'reset', 'Störung zurücksetzen', () => requestAction('errReset', true), 'Zurückgesetzt');
+    if (s.has.filterReset) btn('filterReset', 'filter', 'Filter zurücksetzen', () => requestAction('filterReset', true), 'Zurückgesetzt');
+    if (s.lock !== null) btn('lock', s.lock ? 'unlock' : 'lock', s.lock ? 'Fernbedienung freigeben' : 'Fernbedienung sperren', () => { const v = !s.lock; hold('lock', v); render(); requestAction('lock', v); }, s.lock ? 'Freigegeben' : 'Gesperrt');
   }
 
   // ---------- Zeitschaltuhr ----------
@@ -343,10 +363,10 @@
     edit.push({ enabled: true, time: '07:00', days: [1,2,3,4,5], action: 'on', temp: s.set || 22, mode: '', fan: -1 });
     renderTimers();
   };
-  $('tsave').onclick = () => {
+  $('tsave').onclick = () => pressed('timers', () => {
     requestAction('timers', JSON.stringify(edit));
-    $('pop').classList.remove('show');
-  };
+    setTimeout(() => $('pop').classList.remove('show'), 1500);   // nach der Bestätigung schließen
+  }, 'Gespeichert');
 
   function renderTimers() {
     const l = $('tlist');
@@ -456,5 +476,32 @@
       hidden.has(n) ? hidden.delete(n) : hidden.add(n);
       drawChart(lastChart);
     });
+  }
+
+  // ---------- Tasten mit Rückmeldung ----------
+  // Zustand je Taste bleibt erhalten, auch wenn das Fenster neu gezeichnet wird
+  const PI = {"sync": "<svg viewBox=\"0 0 24 24\"><path d=\"M20 12a8 8 0 0 1-14.3 4.9\"/><path d=\"M4 12a8 8 0 0 1 14.3-4.9\"/><path d=\"M18 3v4h-4M6 21v-4h4\"/></svg>", "reset": "<svg viewBox=\"0 0 24 24\"><path d=\"M4 12a8 8 0 1 0 2.3-5.7\"/><path d=\"M4 4v4h4\"/></svg>", "filter": "<svg viewBox=\"0 0 24 24\"><path d=\"M4 5h16l-6 7v6l-4 2v-8z\"/></svg>", "lock": "<svg viewBox=\"0 0 24 24\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 11V7a4 4 0 0 1 8 0v4\"/></svg>", "unlock": "<svg viewBox=\"0 0 24 24\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 11V7a4 4 0 0 1 7.5-2\"/></svg>", "check": "<svg viewBox=\"0 0 24 24\"><path d=\"M5 12l5 5 9-10\"/></svg>"};
+  const press = {};
+  function pressed(key, run, okText) {
+    if (press[key]) return;                                   // läuft schon
+    press[key] = { st: 'busy' };
+    refreshButtons();
+    run();
+    setTimeout(() => {
+      press[key] = { st: 'done', ok: okText || 'Gesendet' };
+      refreshButtons();
+      setTimeout(() => { delete press[key]; refreshButtons(); }, 1800);
+    }, 700);
+  }
+  function decorate(el, key, html) {
+    const p = press[key];
+    el.classList.toggle('busy', !!p && p.st === 'busy');
+    el.classList.toggle('done', !!p && p.st === 'done');
+    el.innerHTML = !p ? html : (p.st === 'busy' ? '<span class="spin"></span>Wird gesendet …' : PI.check + p.ok);
+  }
+  function refreshButtons() {
+    if ($('info').classList.contains('show')) renderInfo();
+    const sv = $('tsave');
+    if (sv) decorate(sv, 'timers', 'Speichern');
   }
 </script>

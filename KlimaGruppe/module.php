@@ -387,6 +387,7 @@ class KlimaGruppe extends IPSModule
         $act = $acts ? round(array_sum($acts) / count($acts), 1) : null;
 
         $errs = [];
+        $noFb = [];
         $comms = [];
         $units = [];
         $diag = [];
@@ -396,6 +397,9 @@ class KlimaGruppe extends IPSModule
             }
             if (!empty($s['err'])) {
                 $errs[] = $s['name'] . ': ' . $s['errText'];
+            }
+            if (!empty($s['noFeedback'])) {
+                $noFb[] = $s['name'] . ': ' . implode(', ', $s['noFeedback']);
             }
             $units[] = [
                 'id'     => $s['id'],
@@ -456,6 +460,7 @@ class KlimaGruppe extends IPSModule
             'comms'   => $comms,
             'err'     => count($errs) > 0,
             'errs'    => $errs,
+            'noFeedback' => $noFb,
             'errText' => implode(', ', $errs),
             'errCode' => $any($st, 'err') === null ? null : count($errs),
             'filter'  => $any($st, 'filter'),

@@ -293,6 +293,7 @@ class KlimaKachel extends IPSModule
             case 'check':
                 $this->checkTimers();
                 $this->forwardTemp(false);
+                $this->refreshMissingStatus();
                 break;
             default:
                 throw new Exception('Ungültiger Ident: ' . $Ident);
@@ -405,10 +406,60 @@ class KlimaKachel extends IPSModule
     {
         foreach ([$a, $b] as $p) {
             if ($p !== '' && $this->valid($this->vid($p))) {
+                // Status-Variable, die noch nie einen Wert vom Bus bekommen hat:
+                // nicht den Anfangswert (z. B. 0 = Auto) anzeigen, sondern "unbekannt"
+                if ($this->neverUpdated($p)) {
+                    return null;
+                }
                 return GetValue($this->vid($p));
             }
         }
         return null;
+    }
+
+    // Rückmelde-Variablen, deren Werte für die Anzeige zählen
+    private const FEEDBACK = [
+        'PowerStatID' => 'Ein/Aus', 'ModeStatID' => 'Betriebsart', 'SetStatID' => 'Solltemperatur',
+        'ActID' => 'Ist-Temperatur', 'FanStatID' => 'Lüfter', 'VaneStatID' => 'Lamellen', 'SwingStatID' => 'Swing'
+    ];
+
+    private function neverUpdated(string $prop): bool
+    {
+        if (!isset(self::FEEDBACK[$prop]) || !$this->valid($this->vid($prop))) {
+            return false;
+        }
+        return (int)(IPS_GetVariable($this->vid($prop))['VariableUpdated'] ?? 1) === 0;
+    }
+
+    // Fehlen Rückmeldungen, den Status beim Gateway nachfragen:
+    // die ersten 10 Minuten jede Minute, danach alle 10 Minuten
+    private function refreshMissingStatus(): void
+    {
+        if (!$this->missingFeedback()) {
+            $this->SetBuffer('ReadCount', '0');
+            return;
+        }
+        $count = (int)$this->GetBuffer('ReadCount');
+        $wait = $count < 10 ? 60 : 600;
+        if (time() - (int)$this->GetBuffer('ReadLast') < $wait) {
+            return;
+        }
+        $this->SetBuffer('ReadLast', (string)time());
+        $this->SetBuffer('ReadCount', (string)($count + 1));
+        $this->SendDebug('Status', 'Rückmeldung fehlt (' . implode(', ', $this->missingFeedback()) . '), frage Gateway ab', 0);
+        $this->RequestStatus();
+    }
+
+    // Namen der Rückmeldungen, die noch nie vom Gerät gekommen sind
+    private function missingFeedback(): array
+    {
+        $out = [];
+        foreach (self::FEEDBACK as $prop => $name) {
+            if ($this->neverUpdated($prop)) {
+                $out[] = $name;
+            }
+        }
+        return $out;
     }
 
     // Variable, die gelesen bzw. beschrieben wird ($a, sonst $b)
@@ -757,6 +808,7 @@ class KlimaKachel extends IPSModule
             'comp'    => $bool('CompID'),
             'thermo'  => $bool('ThermoID'),
             'lock'    => $this->lockState(),
+            'noFeedback' => $this->missingFeedback(),
             'diag'    => $diag,
             'has'     => [
                 'mode'        => $this->has('ModeCtrlID', 'ModeStatID'),
