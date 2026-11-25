@@ -47,9 +47,19 @@
     {
       "type": "ExpansionPanel", "caption": "Lüfter und Lamellen",
       "items": [
-        { "type": "SelectVariable", "name": "FanCtrlID", "caption": "Lüfterstufe Steuern (0–3)" },
+        { "type": "Select", "name": "FanFormat", "caption": "Format Lüfter",
+          "options": [
+            { "caption": "Prozent – „Fan speed scaling“ (DPT 5.001)", "value": "pct" },
+            { "caption": "Stufe 0–3 – „Fan speed enumerated“ (DPT 5.010)", "value": "enum" }
+          ] },
+        { "type": "Select", "name": "VaneFormat", "caption": "Format Lamellen",
+          "options": [
+            { "caption": "Prozent – „Louver / Vane Position scaling“ (DPT 5.001)", "value": "pct" },
+            { "caption": "Position 1–4 – „Louver / Vane Position enumerated“ (DPT 5.010)", "value": "enum" }
+          ] },
+        { "type": "SelectVariable", "name": "FanCtrlID", "caption": "Lüfterstufe Steuern" },
         { "type": "SelectVariable", "name": "FanStatID", "caption": "Lüfterstufe Status" },
-        { "type": "SelectVariable", "name": "VaneCtrlID", "caption": "Lamellenposition Steuern (1–4)" },
+        { "type": "SelectVariable", "name": "VaneCtrlID", "caption": "Lamellenposition Steuern" },
         { "type": "SelectVariable", "name": "VaneStatID", "caption": "Lamellenposition Status" },
         { "type": "SelectVariable", "name": "SwingCtrlID", "caption": "Swing Steuern" },
         { "type": "SelectVariable", "name": "SwingStatID", "caption": "Swing Status" }
@@ -83,5 +93,8 @@
         }
       ]
     }
+  ],
+  "actions": [
+    { "type": "Button", "caption": "Status vom Gateway abfragen", "onClick": "KK_RequestStatus($id);" }
   ]
 }

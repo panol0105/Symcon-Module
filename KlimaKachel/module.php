@@ -98,6 +98,9 @@ class KlimaKachel extends IPSModule
         }
         $this->RegisterPropertyBoolean('ShowLock', true);
         $this->RegisterPropertyBoolean('ShowAuto', false);
+        $this->RegisterPropertyString('FanFormat', 'pct');    // pct = Prozent (scaling, DPT 5.001), enum = Stufe (DPT 5.010)
+        $this->RegisterPropertyString('VaneFormat', 'pct');
+        $this->RegisterAttributeString('LockState', '');
         $this->RegisterPropertyBoolean('ShowDry', false);
         $this->RegisterPropertyString('Diagnostics', '[]');
         foreach (array_keys(self::KNX) as $k) {
@@ -135,6 +138,8 @@ class KlimaKachel extends IPSModule
         } else {
             $this->SetStatus(102);
         }
+        // aktuelle Werte der Status-Objekte vom Bus holen
+        $this->RequestStatus();
 
         $ids = array_map(fn ($p) => $this->vid($p), self::VARS);
         foreach ($this->diag() as $d) {
@@ -231,12 +236,12 @@ class KlimaKachel extends IPSModule
             case 'fan':
                 // Stufe 0..3; bei Prozent-Objekt (DPT 5.001) 25/50/75/100 %
                 $i = max(0, min(3, (int)$Value));
-                $this->write('FanCtrlID', 'FanStatID', $this->isPercent($this->target('FanCtrlID', 'FanStatID')) ? ($i + 1) * 25 : $i);
+                $this->write('FanCtrlID', 'FanStatID', $this->pct('FanFormat') ? self::PCT_SEND[$i] : $i);
                 break;
             case 'vane':
                 // Position 1..4; bei Prozent-Objekt 25/50/75/100 %
                 $i = max(1, min(4, (int)$Value));
-                $this->write('VaneCtrlID', 'VaneStatID', $this->isPercent($this->target('VaneCtrlID', 'VaneStatID')) ? $i * 25 : $i);
+                $this->write('VaneCtrlID', 'VaneStatID', $this->pct('VaneFormat') ? self::PCT_SEND[$i - 1] : $i);
                 break;
             case 'swing':
                 $this->write('SwingCtrlID', 'SwingStatID', (bool)$Value);
@@ -248,7 +253,11 @@ class KlimaKachel extends IPSModule
                 $this->write('ErrResetID', '', true);
                 break;
             case 'lock':
-                $this->write('LockID', 'LockStatID', (bool)$Value);
+                // Das Gateway meldet die Sperre nicht zurück: gesendeten Zustand merken
+                if ($this->write('LockID', 'LockStatID', (bool)$Value)) {
+                    $this->WriteAttributeString('LockState', $Value ? '1' : '0');
+                    $this->push();
+                }
                 break;
             case 'timers':
                 $t = json_decode((string)$Value, true);
@@ -306,6 +315,10 @@ class KlimaKachel extends IPSModule
     private function knxDef(string $key): array
     {
         $d = self::KNX[$key];
+        if (in_array($key, ['FanCtrlID', 'FanStatID', 'VaneCtrlID', 'VaneStatID'], true)) {
+            $fmt = $this->ReadPropertyString(strpos($key, 'Fan') === 0 ? 'FanFormat' : 'VaneFormat');
+            [$d[1], $d[2]] = $fmt === 'pct' ? [5, 1] : [5, 10];
+        }
         if ($key === 'ModeCtrlID' || $key === 'ModeStatID') {
             if ($this->ReadPropertyString('ModeCoding') === '20105') {
                 [$d[1], $d[2]] = [20, 105];
@@ -381,30 +394,67 @@ class KlimaKachel extends IPSModule
         return $this->valid($id) ? $id : $this->vid($b);
     }
 
-    // true, wenn die Variable Prozentwerte führt (z. B. DPT 5.001 „scaling“)
-    private function isPercent(int $id): bool
+    // Prozent-Objekte (scaling): Steuern 0–24 / 25–49 / 50–74 / 75–100 %,
+    // Status meldet 25 / 50 / 75 / 100 %. Gesendet wird die Mitte des Bereichs.
+    private const PCT_SEND = [12, 37, 62, 87];
+
+    private function pct(string $formatProp): bool
     {
-        if (!$this->valid($id)) {
-            return false;
+        return $this->ReadPropertyString($formatProp) === 'pct';
+    }
+
+    // Stufe 0..3 aus Status- oder Steuer-Variable
+    private function level(string $stat, string $ctrl, string $formatProp): ?int
+    {
+        $fromStatus = $this->valid($this->vid($stat));
+        $raw = $this->read($stat, $ctrl);
+        if ($raw === null) {
+            return null;
         }
-        $v = IPS_GetVariable($id);
-        $p = $v['VariableCustomProfile'] ?: $v['VariableProfile'];
-        if ($p !== '' && IPS_VariableProfileExists($p)) {
-            $pr = IPS_GetVariableProfile($p);
-            return (float)$pr['MaxValue'] === 100.0 || strpos((string)$pr['Suffix'], '%') !== false;
+        if (!$this->pct($formatProp)) {
+            return max(0, min(3, (int)$raw - ($formatProp === 'VaneFormat' ? 1 : 0)));
         }
-        return $v['VariableType'] === 2;   // Kommazahl ohne Profil: Prozent
+        $v = (float)$raw;
+        $i = $fromStatus ? (int)round($v / 25) - 1 : (int)floor($v / 25);
+        return max(0, min(3, $i));
+    }
+
+    // Sperre: Status-Variable, sonst der zuletzt gesendete Zustand
+    private function lockState(): ?bool
+    {
+        if (!$this->has('LockID', 'LockStatID')) {
+            return null;
+        }
+        if ($this->valid($this->vid('LockStatID'))) {
+            return (bool)GetValue($this->vid('LockStatID'));
+        }
+        $a = $this->ReadAttributeString('LockState');
+        return $a === '' ? (bool)$this->read('LockID') : $a === '1';
+    }
+
+    // Aktuelle Werte der Status-Objekte vom Gateway abfragen (KK_RequestStatus)
+    public function RequestStatus(): void
+    {
+        foreach (self::KNX as $key => $d) {
+            if ($d[3]) {
+                continue;   // nur Status-/Meldeobjekte
+            }
+            $iid = $this->knxInstance('KNX_' . $key);
+            if ($iid > 0 && IPS_GetInstance($iid)['ConnectionID'] > 0 && function_exists('KNX_RequestStatus')) {
+                @KNX_RequestStatus($iid);
+            }
+        }
     }
 
     // Schreibt auf $ctrl, sonst auf $stat
-    private function write(string $ctrl, string $stat, $value): void
+    private function write(string $ctrl, string $stat, $value): bool
     {
         $id = $this->vid($ctrl);
         if (!$this->valid($id) && $stat !== '') {
             $id = $this->vid($stat);
         }
         if (!$this->valid($id)) {
-            return;
+            return false;
         }
         switch (IPS_GetVariable($id)['VariableType']) {
             case 0: $value = (bool)$value; break;
@@ -413,15 +463,16 @@ class KlimaKachel extends IPSModule
             default: $value = (string)$value;
         }
         if (!$this->knxCanSend($id)) {
-            return;
+            return false;
         }
         $v = IPS_GetVariable($id);
         if (empty($v['VariableAction']) && empty($v['VariableCustomAction'])) {
             $this->LogMessage('„' . IPS_GetName($id) . '“ (#' . $id . ') hat keine Aktion und kann nicht geschaltet werden. Bitte die Steuer-Variable bzw. -Gruppenadresse (schreibend) zuordnen.', KL_WARNING);
-            return;
+            return false;
         }
         $this->SendDebug('Senden', $ctrl . ' -> #' . $id . ' = ' . json_encode($value), 0);
         RequestAction($id, $value);
+        return true;
     }
 
     // Betriebsarten, die in der Kachel angeboten werden
@@ -525,14 +576,9 @@ class KlimaKachel extends IPSModule
             $mode = $k === false ? null : $k;
         }
         $err = $this->has('ErrCodeID') ? (int)$this->read('ErrCodeID') : null;
-        $fan = $this->read('FanStatID', 'FanCtrlID');
-        if ($fan !== null && $this->isPercent($this->target('FanStatID', 'FanCtrlID'))) {
-            $fan = max(0, min(3, (int)ceil((float)$fan / 25) - 1));
-        }
-        $vane = $this->read('VaneStatID', 'VaneCtrlID');
-        if ($vane !== null && $this->isPercent($this->target('VaneStatID', 'VaneCtrlID'))) {
-            $vane = max(1, min(4, (int)ceil((float)$vane / 25)));
-        }
+        $fan = $this->level('FanStatID', 'FanCtrlID', 'FanFormat');
+        $vane = $this->level('VaneStatID', 'VaneCtrlID', 'VaneFormat');
+        $vane = $vane === null ? null : $vane + 1;
         $swing = $this->read('SwingStatID', 'SwingCtrlID');
 
         $diag = [];
@@ -560,7 +606,7 @@ class KlimaKachel extends IPSModule
             'filter'  => $bool('FilterID'),
             'comp'    => $bool('CompID'),
             'thermo'  => $bool('ThermoID'),
-            'lock'    => $this->has('LockID', 'LockStatID') ? (bool)$this->read('LockStatID', 'LockID') : null,
+            'lock'    => $this->lockState(),
             'diag'    => $diag,
             'has'     => [
                 'mode'        => $this->has('ModeCtrlID', 'ModeStatID'),

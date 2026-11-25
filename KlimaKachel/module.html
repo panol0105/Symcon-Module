@@ -125,12 +125,40 @@
   };
   $('bg').setAttribute('d', arc(START, START + SWEEP));
 
+  // ---------- Warten auf die Rückmeldung vom KNX-Bus ----------
+  // Ein angewählter Wert bleibt sichtbar, bis der Bus genau diesen Wert meldet
+  // (höchstens HOLD ms). So springt die Anzeige nicht zwischen alt und neu.
+  const HOLD = 10000;
+  const pending = {};
+  let real = { has: {} }, holdTimer = null;
+  const same = (a, b) => (typeof a === 'number' && typeof b === 'number') ? Math.abs(a - b) < 0.05 : a === b;
+
+  function hold(key, value) {
+    pending[key] = { v: value, until: Date.now() + HOLD };
+    s[key] = value;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => { s = applyPending(real); render(); }, HOLD + 100);
+  }
+
+  function applyPending(state) {
+    const st = JSON.parse(JSON.stringify(state));
+    const now = Date.now();
+    for (const k in pending) {
+      const p = pending[k];
+      if (now > p.until || same(state[k], p.v)) delete pending[k];   // bestätigt oder abgelaufen
+      else st[k] = p.v;                                                // noch unterwegs
+    }
+    return st;
+  }
+
   function handleMessage(data) {
-    s = typeof data === 'string' ? JSON.parse(data) : data;
-    s.has = s.has || {};
+    real = typeof data === 'string' ? JSON.parse(data) : data;
+    real.has = real.has || {};
+    s = applyPending(real);
     render();
     if ($('info').classList.contains('show')) renderInfo();
   }
+
 
   function render() {
     const m = MODES[s.mode];
@@ -149,18 +177,19 @@
 
     seg('modes', s.has.mode,
       (s.modeList || ['heat', 'cool', 'fan']).map(k => ({ v: k, h: `<span class="ico">${MODES[k][0]}</span>${MODES[k][1]}`, a: s.mode === k })),
-      v => { s.mode = v; render(); requestAction('mode', v); });
+      v => { hold('mode', v); render(); requestAction('mode', v); });
 
     seg('fans', s.has.fan,
       FANS.map((t, i) => ({ v: i, h: t, a: s.fan === i })),
-      v => { s.fan = v; render(); requestAction('fan', v); });
+      v => { hold('fan', v); render(); requestAction('fan', v); });
 
     const vanes = s.has.vane ? [1,2,3,4].map(i => ({ v: i, h: 'Pos ' + i, a: !s.swing && s.vane === i })) : [];
     if (s.has.swing) vanes.push({ v: 'swing', h: 'Swing', a: !!s.swing });
     seg('vanes', vanes.length > 0, vanes, v => {
-      if (v === 'swing') { s.swing = !s.swing; render(); requestAction('swing', s.swing); return; }
+      if (v === 'swing') { hold('swing', !s.swing); render(); requestAction('swing', s.swing); return; }
       if (s.swing && s.has.swing) requestAction('swing', false);
-      s.swing = false; s.vane = v; render();
+      if (s.has.swing) hold('swing', false);
+      hold('vane', v); render();
       requestAction('vane', v);
     });
   }
@@ -192,7 +221,7 @@
     if (s.comm) add('⚠ Keine Verbindung', 'err', openInfo);
     if (s.err) add('⚠ ' + s.errText, 'err', openInfo);
     if (s.filter) add('Filter reinigen', 'warn', openInfo);
-    if (s.has.lock && s.lock) add('🔒 Fernbedienung gesperrt · freigeben', 'warn', () => requestAction('lock', false));
+    if (s.has.lock && s.lock) add('🔒 Fernbedienung gesperrt · freigeben', 'warn', () => { hold('lock', false); render(); requestAction('lock', false); });
     if (s.power && s.comp === true) add('Verdichter läuft', 'ok');
     if (s.power && s.thermo === false) add('Temperatur erreicht');
     if (!s.comm && !s.err && !s.filter && !(s.has.lock && s.lock) && (s.comm !== null || s.errCode !== null)) add('Alle Werte OK', 'ok');
@@ -227,19 +256,19 @@
   dial.addEventListener('pointerdown', e => { dial.setPointerCapture(e.pointerId); dragVal = valFromEvent(e); drawDial(dragVal); });
   dial.addEventListener('pointermove', e => { if (dragVal !== null) { dragVal = valFromEvent(e); drawDial(dragVal); } });
   dial.addEventListener('pointerup', () => {
-    if (dragVal !== null) { s.set = dragVal; requestAction('setpoint', dragVal); dragVal = null; }
+    if (dragVal !== null) { hold('set', dragVal); requestAction('setpoint', dragVal); dragVal = null; render(); }
   });
 
   const stepSet = d => {
     const base = s.set === null || s.set === undefined ? s.min : s.set;
     const v = snap(base + d * s.step);
-    s.set = v; drawDial(v);
+    hold('set', v); drawDial(v);
     requestAction('setpoint', v);
   };
   $('minus').onclick = () => stepSet(-1);
   $('plus').onclick = () => stepSet(1);
-  $('pw').onclick = () => requestAction('power', !s.power);
-  $('lk').onclick = () => requestAction('lock', !s.lock);
+  $('pw').onclick = () => { const v = !s.power; hold('power', v); render(); requestAction('power', v); };
+  $('lk').onclick = () => { const v = !s.lock; hold('lock', v); render(); requestAction('lock', v); };
 
   // ---------- Status-Fenster ----------
   function openInfo() { renderInfo(); $('info').classList.add('show'); }
@@ -270,7 +299,7 @@
     };
     if (s.has.errReset) btn('Störung zurücksetzen', () => requestAction('errReset', true));
     if (s.has.filterReset) btn('Filter zurücksetzen', () => requestAction('filterReset', true));
-    if (s.lock !== null) btn(s.lock ? 'Fernbedienung freigeben' : 'Fernbedienung sperren', () => requestAction('lock', !s.lock));
+    if (s.lock !== null) btn(s.lock ? 'Fernbedienung freigeben' : 'Fernbedienung sperren', () => { const v = !s.lock; hold('lock', v); render(); renderInfo(); requestAction('lock', v); });
   }
 
   // ---------- Zeitschaltuhr ----------
