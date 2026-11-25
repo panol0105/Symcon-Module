@@ -94,6 +94,8 @@ class KlimaKachel extends IPSModule
             $this->RegisterPropertyInteger($v, 0);
         }
         $this->RegisterPropertyBoolean('ShowLock', true);
+        $this->RegisterPropertyBoolean('ShowAuto', false);
+        $this->RegisterPropertyBoolean('ShowDry', false);
         $this->RegisterPropertyString('Diagnostics', '[]');
         foreach (array_keys(self::KNX) as $k) {
             $this->RegisterPropertyString('GA_' . $k, '');
@@ -166,7 +168,7 @@ class KlimaKachel extends IPSModule
         return $html . '<script>handleMessage(' . json_encode($this->buildState()) . ');</script>';
     }
 
-    // ---------- Schnittstelle für das Modul KlimaRaum ----------
+    // ---------- Schnittstelle für das Modul KlimaGruppe ----------
 
     // Aktueller Zustand als JSON (KK_GetState)
     public function GetState(): string
@@ -219,7 +221,7 @@ class KlimaKachel extends IPSModule
                 break;
             case 'mode':
                 $map = $this->modeMap();
-                if (isset($map[$Value])) {
+                if (isset($map[$Value]) && in_array($Value, $this->modeList(), true)) {
                     $this->write('ModeCtrlID', 'ModeStatID', $map[$Value]);
                 }
                 break;
@@ -378,7 +380,23 @@ class KlimaKachel extends IPSModule
             case 2: $value = (float)$value; break;
             default: $value = (string)$value;
         }
+        if (!$this->knxCanSend($id)) {
+            return;
+        }
         RequestAction($id, $value);
+    }
+
+    // Betriebsarten, die in der Kachel angeboten werden
+    private function modeList(): array
+    {
+        $list = ['heat', 'cool', 'fan'];
+        if ($this->ReadPropertyBoolean('ShowAuto')) {
+            $list[] = 'auto';
+        }
+        if ($this->ReadPropertyBoolean('ShowDry')) {
+            $list[] = 'dry';
+        }
+        return $list;
     }
 
     private function modeMap(): array
@@ -485,6 +503,7 @@ class KlimaKachel extends IPSModule
             'title'   => $this->ReadPropertyString('Title'),
             'power'   => (bool)$this->read('PowerStatID', 'PowerCtrlID'),
             'mode'    => $mode,
+            'modeList' => $this->modeList(),
             'set'     => $this->read('SetStatID', 'SetCtrlID'),
             'act'     => $this->read('ActID'),
             'fan'     => $fan === null ? null : (int)$fan,

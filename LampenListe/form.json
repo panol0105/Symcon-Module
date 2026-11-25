@@ -1,7 +1,8 @@
 {
   "status": [
     { "code": 102, "icon": "active", "caption": "Aktiv" },
-    { "code": 201, "icon": "error", "caption": "Mindestens eine Gruppenadresse konnte nicht angelegt werden (Details im Meldungen-Fenster)" }
+    { "code": 201, "icon": "error", "caption": "Mindestens eine Gruppenadresse konnte nicht angelegt werden (Details im Meldungen-Fenster)" },
+    { "code": 202, "icon": "error", "caption": "KNX-Instanzen sind mit keinem KNX-Gateway verbunden. Bitte Gateway unter „KNX-Gruppenadressen“ auswählen." }
   ],
   "elements": [
     {

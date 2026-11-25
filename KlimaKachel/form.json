@@ -1,7 +1,8 @@
 {
   "status": [
     { "code": 102, "icon": "active", "caption": "Aktiv" },
-    { "code": 201, "icon": "error", "caption": "Mindestens eine Gruppenadresse konnte nicht angelegt werden (Details im Meldungen-Fenster)" }
+    { "code": 201, "icon": "error", "caption": "Mindestens eine Gruppenadresse konnte nicht angelegt werden (Details im Meldungen-Fenster)" },
+    { "code": 202, "icon": "error", "caption": "KNX-Instanzen sind mit keinem KNX-Gateway verbunden. Bitte Gateway unter „KNX-Gruppenadressen“ auswählen." }
   ],
   "elements": [
     { "type": "ValidationTextBox", "name": "Title", "caption": "Name in der Kachel" },
@@ -27,7 +28,10 @@
         { "type": "SelectVariable", "name": "PowerCtrlID", "caption": "Ein/Aus Steuern" },
         { "type": "SelectVariable", "name": "PowerStatID", "caption": "Ein/Aus Status" },
         { "type": "SelectVariable", "name": "ModeCtrlID", "caption": "Betriebsart Steuern" },
-        { "type": "SelectVariable", "name": "ModeStatID", "caption": "Betriebsart Status" }
+        { "type": "SelectVariable", "name": "ModeStatID", "caption": "Betriebsart Status" },
+        { "type": "Label", "caption": "In der Kachel stehen Heizen, Kühlen und Nur Lüfter zur Auswahl. Zusätzlich anzeigen:" },
+        { "type": "CheckBox", "name": "ShowAuto", "caption": "Auto" },
+        { "type": "CheckBox", "name": "ShowDry", "caption": "Trocknen" }
       ]
     },
     {

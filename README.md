@@ -4,7 +4,7 @@ Module für IP-Symcon ab Version 7 (getestet für 9.x), Kachel-Visualisierung.
 
 - **LampenListe**: mehrere Lampen in einer Kachel als Liste (Schalten, Dimmer, Tunable White, RGBW)
 - **KlimaKachel**: ein Klima-Innengerät über das Intesis/HMS-Gateway IN776-MHI per KNX (runder Temperatur-Slider, Betriebsart, Lüfter, Lamellen, Meldungen, Fernbedienungssperre, Zeitschaltuhr)
-- **KlimaRaum**: mehrere KlimaKachel-Instanzen eines Raums als ein Gerät, parallel gesteuert, mit gemeinsamer Auswertung der Rückmeldungen
+- **KlimaGruppe**: mehrere KlimaKachel-Instanzen eines Raums als ein Gerät, parallel gesteuert, mit gemeinsamer Auswertung der Rückmeldungen
 
 ## Installation
 
@@ -29,8 +29,8 @@ Format: dreistufig Haupt/Mittel/Unter, z. B. 3/1/20. Eine ausgewählte Variable 
 ## Räume mit mehreren Klimageräten
 
 1. Für jedes Innengerät eine **KlimaKachel**-Instanz anlegen und die KNX-Variablen zuordnen. Diese Instanzen nicht in die Visualisierung aufnehmen.
-2. Eine **KlimaRaum**-Instanz anlegen und die KlimaKachel-Instanzen des Raums in die Liste eintragen. Das erste Gerät ist das Hauptgerät.
-3. Nur die KlimaRaum-Instanz in die Visualisierung aufnehmen.
+2. Eine **KlimaGruppe**-Instanz anlegen und die KlimaKachel-Instanzen des Raums in die Liste eintragen. Das erste Gerät ist das Hauptgerät.
+3. Nur die KlimaGruppe-Instanz in die Visualisierung aufnehmen.
 
 ### Auswertung der Rückmeldungen
 

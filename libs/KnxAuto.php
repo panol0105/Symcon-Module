@@ -39,6 +39,38 @@ trait KnxAuto
         throw new Exception('Symcon-Modul „KNX DPT ' . $dpt . '“ nicht gefunden');
     }
 
+    // Ausgewähltes KNX-Gateway (0, wenn keins ausgewählt ist)
+    private function knxGateway(int $selected): int
+    {
+        return ($selected > 1 && IPS_InstanceExists($selected)) ? $selected : 0;
+    }
+
+    // Anzahl automatisch angelegter Instanzen ohne Gateway-Verbindung
+    private function knxUnconnected(array $wanted): int
+    {
+        $n = 0;
+        foreach (array_keys($wanted) as $ident) {
+            $iid = $this->knxInstance($ident);
+            if ($iid > 0 && IPS_GetInstance($iid)['ConnectionID'] === 0) {
+                $n++;
+            }
+        }
+        return $n;
+    }
+
+    // Prüft vor dem Senden, ob eine eigene KNX-Variable an einem Gateway hängt
+    private function knxCanSend(int $varID): bool
+    {
+        $iid = IPS_GetParent($varID);
+        if ($iid > 0 && IPS_InstanceExists($iid) && IPS_GetParent($iid) === $this->InstanceID
+            && IPS_GetInstance($iid)['ConnectionID'] === 0) {
+            $this->LogMessage('„' . IPS_GetName($iid) . '“ ist mit keinem KNX-Gateway verbunden. Bitte unter „KNX-Gruppenadressen“ das Gateway auswählen.', KL_ERROR);
+            $this->SetStatus(202);
+            return false;
+        }
+        return true;
+    }
+
     private function knxInstance(string $ident): int
     {
         $id = (int)@IPS_GetObjectIDByIdent($ident, $this->InstanceID);
@@ -65,9 +97,13 @@ trait KnxAuto
      * $wanted: ident => ['ga' => '1/2/3', 'dpt' => 9, 'dim' => 1, 'write' => true, 'name' => 'Solltemperatur']
      * Rückgabe: Liste der Fehlermeldungen
      */
-    private function knxSync(array $wanted, int $gateway): array
+    private function knxSync(array $wanted, int $selected): array
     {
         $errors = [];
+        $gateway = $this->knxGateway($selected);
+        if ($wanted && $gateway === 0) {
+            $errors[] = 'Kein KNX-Gateway ausgewählt. Bitte unter „KNX-Gruppenadressen“ das KNX-Gateway auswählen und übernehmen.';
+        }
         foreach ($wanted as $ident => $w) {
             try {
                 $this->knxEnsure($ident, $w, $gateway);
@@ -105,14 +141,13 @@ trait KnxAuto
             IPS_SetParent($iid, $this->InstanceID);
             IPS_SetIdent($iid, $ident);
         }
-        if ($gateway > 1 && IPS_InstanceExists($gateway)) {
-            $con = IPS_GetInstance($iid)['ConnectionID'];
-            if ($con !== $gateway) {
-                if ($con > 0) {
-                    IPS_DisconnectInstance($iid);
-                }
-                IPS_ConnectInstance($iid, $gateway);
+        // mit dem ausgewählten Gateway verbinden
+        $con = IPS_GetInstance($iid)['ConnectionID'];
+        if ($gateway > 1 && $con !== $gateway) {
+            if ($con > 0) {
+                IPS_DisconnectInstance($iid);
             }
+            IPS_ConnectInstance($iid, $gateway);
         }
         IPS_SetName($iid, $w['name']);
         IPS_SetInfo($iid, 'Automatisch angelegt von ' . IPS_GetName($this->InstanceID) . ' (GA ' . implode('/', $a) . ')');
@@ -141,14 +176,14 @@ trait KnxAuto
                 $missing++;
             }
         }
-        return md5(json_encode([$wanted, $gateway, $missing]));
+        return md5(json_encode([$wanted, $gateway, $missing, $this->knxUnconnected($wanted)]));
     }
 
     // Formular-Elemente für Gateway-Auswahl
     private function knxGatewayElements(): array
     {
         return [
-            ['type' => 'SelectInstance', 'name' => 'KnxGateway', 'caption' => 'KNX-Gateway (leer = automatisch)'],
+            ['type' => 'SelectInstance', 'name' => 'KnxGateway', 'caption' => 'KNX-Gateway (für Gruppenadressen erforderlich)'],
             ['type' => 'Label', 'caption' => 'Trägst du eine Gruppenadresse ein (Format 3/1/20), legt das Modul beim Übernehmen die passende KNX-Instanz samt Variable mit dem jeweiligen Namen an. Eine ausgewählte Variable hat Vorrang vor der Gruppenadresse.']
         ];
     }

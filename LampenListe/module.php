@@ -102,7 +102,7 @@ class LampenListe extends IPSModule
         switch ($type) {
             case 'switch':
                 if ($this->ctrl($l, 'Switch') > 0) {
-                    RequestAction($this->ctrl($l, 'Switch'), (bool)$Value);
+                    $this->send($this->ctrl($l, 'Switch'), (bool)$Value);
                 } elseif ($this->ctrl($l, 'Dim') > 0) {
                     [$min, $max] = $this->range($this->ctrl($l, 'Dim'), 0, 100);
                     $this->setVar($this->ctrl($l, 'Dim'), $Value ? $max : $min);
@@ -122,7 +122,7 @@ class LampenListe extends IPSModule
                 break;
             case 'color':
                 if ($this->ctrl($l, 'Color') > 0) {
-                    RequestAction($this->ctrl($l, 'Color'), (int)hexdec(ltrim((string)$Value, '#')));
+                    $this->send($this->ctrl($l, 'Color'), (int)hexdec(ltrim((string)$Value, '#')));
                 }
                 break;
         }
@@ -198,7 +198,14 @@ class LampenListe extends IPSModule
     private function setVar(int $id, $value): void
     {
         $t = IPS_GetVariable($id)['VariableType'];
-        RequestAction($id, $t == 1 ? (int)round((float)$value) : (float)$value);
+        $this->send($id, $t == 1 ? (int)round((float)$value) : (float)$value);
+    }
+
+    private function send(int $id, $value): void
+    {
+        if ($this->knxCanSend($id)) {
+            RequestAction($id, $value);
+        }
     }
 
     private function range(int $id, float $dMin, float $dMax): array

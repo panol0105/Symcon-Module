@@ -1,0 +1,384 @@
+<style>
+  :root { --mc:#2563eb; --txt:#2f3437; --sub:#6b7280; --cell:#eef2f8; --line:#e3e8ef;
+          --ok:#1a9a46; --okbg:#e5f5ea; --warn:#d97706; --warnbg:#fff1dc; --err:#d6204e; --errbg:#fdeaf0;
+          --head:48px; /* Platz für die Kopfzeile, die Symcon über jede Kachel legt */ }
+  body { margin:0; font-family: Poppins, 'Segoe UI', system-ui, sans-serif; color:var(--txt); }
+  button, input, select { font-family:inherit; }
+  .wrap { display:flex; flex-direction:column; align-items:center; gap:10px; height:100%; box-sizing:border-box; padding:var(--head) 16px 14px; overflow-y:auto; }
+  .top { width:100%; display:flex; align-items:center; gap:6px; }
+  .title:empty { display:none; }
+  .top .btn:first-of-type { margin-left:auto; }
+  .title { order:-1; flex:1; text-align:left; font-size:18px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .btn { border:none; border-radius:50%; width:36px; height:36px; background:var(--cell); color:var(--txt); font-size:16px; cursor:pointer; flex:none; }
+  .pw.on { background:var(--mc); color:#fff; }
+  .lk.locked { background:var(--errbg); color:var(--err); }
+  .chips { width:100%; display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { border:none; border-radius:999px; padding:4px 12px; font-size:13px; font-weight:500; background:var(--cell); color:var(--sub); }
+  .chip.ok { background:var(--okbg); color:var(--ok); }
+  .chip.ok::before { content:'\25CF\00a0'; font-size:9px; vertical-align:2px; }
+  .chip.warn { background:var(--warnbg); color:var(--warn); cursor:pointer; }
+  .chip.err { background:var(--errbg); color:var(--err); cursor:pointer; }
+  .dial { position:relative; width:min(78vw, 52vh); max-width:240px; aspect-ratio:1; touch-action:none; }
+  svg { width:100%; height:100%; }
+  #bg { stroke:var(--line); }
+  #fg { stroke:var(--mc); transition:stroke .3s; }
+  #knob { fill:#fff; stroke:var(--mc); stroke-width:3; }
+  .center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+  .soll { font-size:46px; font-weight:700; letter-spacing:-1px; line-height:1.1; }
+  .soll .u { font-size:18px; font-weight:500; margin-left:3px; letter-spacing:0; }
+  .ist { font-size:14px; color:var(--sub); }
+  .mlabel { font-size:13px; color:var(--mc); margin-top:3px; font-weight:600; }
+  .off .soll, .off #fg, .off #knob { opacity:.35; }
+  .pm { display:flex; gap:60px; margin-top:-14px; }
+  .seg-wrap { width:100%; }
+  .seg-l { font-size:13px; color:var(--sub); margin:0 0 4px 2px; }
+  .seg { display:flex; background:var(--cell); border-radius:12px; padding:4px; gap:4px; }
+  .seg button { flex:1; border:none; border-radius:9px; padding:7px 2px; background:none; color:var(--txt); font-size:13px; cursor:pointer; }
+  .seg button.act { background:var(--mc); color:#fff; font-weight:500; }
+  .ico { font-size:16px; display:block; }
+  .pop { position:fixed; inset:0; background:rgba(30,40,55,.35); display:none; align-items:center; justify-content:center; z-index:10; }
+  .pop.show { display:flex; }
+  .box { background:#fff; color:var(--txt); border-radius:16px; padding:18px; width:92%; max-width:440px; max-height:85%; overflow-y:auto; box-sizing:border-box; box-shadow:0 10px 30px rgba(0,0,0,.15); }
+  .box h3 { margin:0 0 10px; font-size:18px; font-weight:500; }
+  .ir { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .ir span:first-child { color:var(--sub); }
+  .ir span:last-child { font-weight:600; text-align:right; }
+  .red { color:var(--err) !important; } .yel { color:var(--warn) !important; }
+  .t { background:var(--cell); border-radius:12px; padding:10px; margin-bottom:8px; display:flex; flex-direction:column; gap:8px; }
+  .rowx { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .t .rowx { margin-top:0; }
+  .end { justify-content:flex-end; }
+  .day { width:30px; height:30px; border-radius:50%; border:none; background:#fff; color:var(--sub); font-size:11px; cursor:pointer; }
+  .day.sel { background:var(--mc); color:#fff; }
+  input, select { background:#fff; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:5px; }
+  .act-btn { border:none; border-radius:10px; padding:8px 12px; cursor:pointer; background:var(--mc); color:#fff; font-weight:500; }
+  .ghost { background:var(--cell); color:var(--txt); }
+  .del { background:var(--errbg); color:var(--err); }
+  .pw.part { box-shadow:inset 0 0 0 2px var(--mc); color:var(--mc); }
+  .urow { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .ubtn { width:30px; height:30px; font-size:14px; }
+  .ubtn.uon { background:var(--mc); color:#fff; }
+  .uname { flex:1; font-weight:500; }
+  .usub { color:var(--sub); font-size:12px; font-weight:400; }
+  .badge { font-size:11px; font-weight:500; padding:1px 8px; border-radius:999px; background:var(--cell); margin-left:6px; }
+  .badge.red { background:var(--errbg); } .badge.yel { background:var(--warnbg); }
+  .h4 { font-size:13px; color:var(--sub); margin:14px 0 2px; }
+</style>
+
+<div class="wrap" id="wrap">
+  <div class="top">
+    <button class="btn" id="tbtn" title="Zeitschaltuhr">⏱</button>
+    <button class="btn" id="ibtn" title="Status">ⓘ</button>
+    <div class="title" id="title"></div>
+    <button class="btn lk" id="lk" title="Fernbedienung">🔓</button>
+    <button class="btn pw" id="pw" title="Ein/Aus">⏻</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="dial" id="dial">
+    <svg viewBox="0 0 200 200">
+      <path id="bg" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="14" stroke-linecap="round"/>
+      <path id="fg" fill="none" stroke-width="14" stroke-linecap="round"/>
+      <circle id="knob" r="11" fill="#fff"/>
+    </svg>
+    <div class="center">
+      <div class="soll" id="soll">--</div>
+      <div class="ist" id="ist"></div>
+      <div class="mlabel" id="mlabel"></div>
+    </div>
+  </div>
+  <div class="pm"><button class="btn" id="minus">−</button><button class="btn" id="plus">+</button></div>
+  <div class="seg-wrap" id="modesW"><div class="seg-l">Betriebsart</div><div class="seg" id="modes"></div></div>
+  <div class="seg-wrap" id="fansW"><div class="seg-l">Lüfter</div><div class="seg" id="fans"></div></div>
+  <div class="seg-wrap" id="vanesW"><div class="seg-l">Lamellen</div><div class="seg" id="vanes"></div></div>
+</div>
+
+<div class="pop" id="info">
+  <div class="box">
+    <h3>Status</h3>
+    <div id="ibody"></div>
+    <div class="rowx" id="ibtns"></div>
+    <div class="rowx end"><button class="act-btn ghost" id="iclose">Schließen</button></div>
+  </div>
+</div>
+
+<div class="pop" id="pop">
+  <div class="box">
+    <h3>Zeitschaltuhr</h3>
+    <div id="tlist"></div>
+    <div class="rowx" style="justify-content:space-between">
+      <button class="act-btn ghost" id="tadd">+ Schaltzeit</button>
+      <div class="rowx" style="margin-top:0">
+        <button class="act-btn ghost" id="tcancel">Abbrechen</button>
+        <button class="act-btn" id="tsave">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CX = 100, CY = 100, R = 80, START = 135, SWEEP = 270;
+  const DAYS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+  const MODES = {
+    auto: ['⟳', 'Auto', '#7c3aed'],
+    heat: ['☀', 'Heizen', '#ea580c'],
+    cool: ['❄', 'Kühlen', '#2563eb'],
+    fan:  ['✲', 'Nur Lüfter', '#0f9f8a'],
+    dry:  ['💧', 'Trocknen', '#d97706']
+  };
+  const FANS = ['Niedrig', 'Mittel', 'Hoch', 'Power'];
+  let s = { has: {} }, dragVal = null, edit = [];
+  const $ = id => document.getElementById(id);
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const fmt = v => v === null || v === undefined ? '--' : Number(v).toFixed(1).replace('.', ',');
+
+  const pt = a => { const r = a * Math.PI / 180; return [CX + R * Math.cos(r), CY + R * Math.sin(r)]; };
+  const arc = (a1, a2) => {
+    const [x1, y1] = pt(a1), [x2, y2] = pt(a2);
+    return `M ${x1} ${y1} A ${R} ${R} 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${x2} ${y2}`;
+  };
+  $('bg').setAttribute('d', arc(START, START + SWEEP));
+
+  function handleMessage(data) {
+    s = typeof data === 'string' ? JSON.parse(data) : data;
+    s.has = s.has || {};
+    render();
+    if ($('info').classList.contains('show')) renderInfo();
+  }
+
+  function render() {
+    const m = MODES[s.mode];
+    document.documentElement.style.setProperty('--mc', m ? m[2] : '#2563eb');
+    $('title').textContent = s.title || '';
+    const mx = s.mixed || {};
+    $('pw').classList.toggle('on', !!s.power && !mx.power);
+    $('pw').classList.toggle('part', !!mx.power);
+    $('pw').title = mx.power ? s.onCount + ' von ' + s.total + ' Geräten an, tippen zum Ausschalten' : 'Ein/Aus (alle Geräte)';
+    const lk = $('lk');
+    lk.style.display = s.has.lock ? '' : 'none';
+    lk.classList.toggle('locked', !!s.lock);
+    lk.textContent = s.lock ? '🔒' : '🔓';
+    lk.title = s.lock ? 'Fernbedienung gesperrt, tippen zum Freigeben' : 'Fernbedienung frei, tippen zum Sperren';
+    $('wrap').classList.toggle('off', !s.power || s.mode === 'fan');
+    const spread = s.actMin !== null && s.actMax - s.actMin >= 0.5;
+    $('ist').textContent = 'Ist ' + fmt(s.act) + ' °C' + (spread ? ` (${fmt(s.actMin)}–${fmt(s.actMax)})` : '');
+    let ml = s.power ? (mx.mode ? 'Gemischt' : (m ? m[1] : 'Ein')) : 'Aus';
+    if (s.total > 1) ml += s.power ? ` · ${s.onCount} von ${s.total} an` : ` · ${s.total} Geräte`;
+    $('mlabel').textContent = ml;
+    drawDial(dragVal !== null ? dragVal : s.set);
+    renderChips();
+
+    seg('modes', s.has.mode,
+      (s.modeList || ['heat', 'cool', 'fan']).map(k => ({ v: k, h: `<span class="ico">${MODES[k][0]}</span>${MODES[k][1]}`, a: s.mode === k })),
+      v => requestAction('mode', v));
+
+    seg('fans', s.has.fan,
+      FANS.map((t, i) => ({ v: i, h: t, a: s.fan === i })),
+      v => requestAction('fan', v));
+
+    const vanes = s.has.vane ? [1,2,3,4].map(i => ({ v: i, h: 'Pos ' + i, a: !s.swing && s.vane === i })) : [];
+    if (s.has.swing) vanes.push({ v: 'swing', h: 'Swing', a: !!s.swing });
+    seg('vanes', vanes.length > 0, vanes, v => {
+      if (v === 'swing') { requestAction('swing', !s.swing); return; }
+      if (s.swing && s.has.swing) requestAction('swing', false);
+      requestAction('vane', v);
+    });
+  }
+
+  function seg(id, show, items, cb) {
+    $(id + 'W').style.display = show ? '' : 'none';
+    if (!show) return;
+    const el = $(id);
+    el.innerHTML = '';
+    items.forEach(it => {
+      const b = document.createElement('button');
+      b.innerHTML = it.h;
+      if (it.a) b.className = 'act';
+      b.onclick = () => cb(it.v);
+      el.appendChild(b);
+    });
+  }
+
+  function renderChips() {
+    const c = $('chips');
+    c.innerHTML = '';
+    const add = (t, cls, fn) => {
+      const b = document.createElement('button');
+      b.className = 'chip ' + (cls || '');
+      b.textContent = t;
+      if (fn) b.onclick = fn;
+      c.appendChild(b);
+    };
+    (s.comms || []).forEach(n => add('⚠ ' + n + ': keine Verbindung', 'err', openInfo));
+    (s.errs || []).forEach(e => add('⚠ ' + e, 'err', openInfo));
+    if (s.filter) add('Filter reinigen', 'warn', openInfo);
+    const mx = s.mixed || {};
+    if (s.total > 1 && (mx.power || mx.mode || mx.set || mx.fan || mx.vane)) {
+      const what = [];
+      if (mx.power) what.push(s.onCount + '/' + s.total + ' an');
+      if (mx.set) what.push('Soll ' + fmt(s.setMin) + '–' + fmt(s.setMax) + '°');
+      if (mx.mode) what.push('Betriebsart');
+      if (mx.fan) what.push('Lüfter');
+      if (mx.vane) what.push('Lamellen');
+      add('≠ ' + what.join(', ') + ' · angleichen', 'warn', () => requestAction('sync', true));
+    }
+    if (s.has.lock && s.lock) add('🔒 Fernbedienung gesperrt · freigeben', 'warn', () => requestAction('lock', false));
+    if (s.power && s.comp === true) add('Verdichter läuft', 'ok');
+    if (s.power && s.thermo === false) add('Temperatur erreicht');
+    if (!s.comm && !s.err && !s.filter && !(s.has.lock && s.lock) && (s.comm !== null || s.errCode !== null) && !(s.mixed && (s.mixed.power || s.mixed.mode || s.mixed.set || s.mixed.fan || s.mixed.vane))) add('Alle Werte OK', 'ok');
+  }
+
+  function drawDial(v) {
+    const val = v === null || v === undefined ? s.min : v;
+    const f = Math.min(1, Math.max(0, (val - s.min) / (s.max - s.min)));
+    const a = START + SWEEP * f;
+    $('fg').setAttribute('d', f > 0.001 ? arc(START, a) : '');
+    const [x, y] = pt(a);
+    $('knob').setAttribute('cx', x);
+    $('knob').setAttribute('cy', y);
+    $('soll').innerHTML = fmt(v) + '<span class="u">°C</span>';
+  }
+
+  function snap(raw) {
+    const v = Math.round(raw / s.step) * s.step;
+    return +Math.min(s.max, Math.max(s.min, v)).toFixed(1);
+  }
+
+  function valFromEvent(e) {
+    const r = $('dial').getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * 200 - CX;
+    const y = (e.clientY - r.top) / r.height * 200 - CY;
+    let a = (Math.atan2(y, x) * 180 / Math.PI - START + 720) % 360;
+    if (a > SWEEP) a = a > (SWEEP + 360) / 2 ? 0 : SWEEP;
+    return snap(s.min + (s.max - s.min) * a / SWEEP);
+  }
+
+  const dial = $('dial');
+  dial.addEventListener('pointerdown', e => { dial.setPointerCapture(e.pointerId); dragVal = valFromEvent(e); drawDial(dragVal); });
+  dial.addEventListener('pointermove', e => { if (dragVal !== null) { dragVal = valFromEvent(e); drawDial(dragVal); } });
+  dial.addEventListener('pointerup', () => {
+    if (dragVal !== null) { s.set = dragVal; requestAction('setpoint', dragVal); dragVal = null; }
+  });
+
+  const stepSet = d => {
+    const base = s.set === null || s.set === undefined ? s.min : s.set;
+    const v = snap(base + d * s.step);
+    s.set = v; drawDial(v);
+    requestAction('setpoint', v);
+  };
+  $('minus').onclick = () => stepSet(-1);
+  $('plus').onclick = () => stepSet(1);
+  $('pw').onclick = () => requestAction('power', !s.power);
+  $('lk').onclick = () => requestAction('lock', !s.lock);
+
+  // ---------- Status-Fenster ----------
+  function openInfo() { renderInfo(); $('info').classList.add('show'); }
+  $('ibtn').onclick = openInfo;
+  $('iclose').onclick = () => $('info').classList.remove('show');
+
+  function renderInfo() {
+    const r = (k, v, cls) => `<div class="ir"><span>${k}</span><span class="${cls || ''}">${v}</span></div>`;
+    let h = '';
+    if (s.comm !== null) h += r('Verbindung', s.comm ? 'Gestört' : 'OK', s.comm ? 'red' : '');
+    if (s.errCode !== null) h += r('Störung', s.err ? (s.errs || []).map(esc).join('<br>') : 'Keine', s.err ? 'red' : '');
+    if (s.filter !== null) h += r('Filter', s.filter ? 'Reinigen' : 'OK', s.filter ? 'yel' : '');
+    if (s.comp !== null) h += r('Verdichter', s.comp ? 'Ein' : 'Aus');
+    if (s.thermo !== null) h += r('Thermo', s.thermo ? 'Ein' : 'Aus');
+    if (s.lock !== null) h += r('Fernbedienung', s.lock ? 'Gesperrt' : 'Frei');
+    h += r('Ist-Temperatur (Mittel)', fmt(s.act) + ' °C');
+    if (s.autoSync) h += r('Automatisch angleichen', 'Ein');
+
+    h += '<div class="h4">Geräte</div>';
+    (s.units || []).forEach((u, i) => {
+      const md = MODES[u.mode] ? MODES[u.mode][1] : 'Ein';
+      const sub = u.power ? `${md} · Soll ${fmt(u.set)}° · Ist ${fmt(u.act)}°` : `Aus · Ist ${fmt(u.act)}°`;
+      h += `<div class="urow"><button class="btn ubtn ${u.power ? 'uon' : ''}" data-u="${i}" title="Nur dieses Gerät schalten">⏻</button>
+        <div class="uname">${esc(u.name)}${i === 0 && s.total > 1 ? '<span class="badge">Haupt</span>' : ''}
+        ${u.alarm ? '<span class="badge red">Störung</span>' : ''}${u.filter ? '<span class="badge yel">Filter</span>' : ''}
+        <div class="usub">${sub}</div></div></div>`;
+    });
+
+    if ((s.diag || []).length) h += '<div class="h4">Diagnose</div>';
+    (s.diag || []).forEach(d => h += r(esc(d.n), esc(d.v)));
+    $('ibody').innerHTML = h;
+    $('ibody').querySelectorAll('[data-u]').forEach(x => x.onclick = () => {
+      const u = s.units[Number(x.dataset.u)];
+      requestAction('unitPower', JSON.stringify({ id: u.id, v: !u.power }));
+    });
+
+    const b = $('ibtns');
+    b.innerHTML = '';
+    const btn = (t, fn) => {
+      const x = document.createElement('button');
+      x.className = 'act-btn';
+      x.textContent = t;
+      x.onclick = fn;
+      b.appendChild(x);
+    };
+    if (s.total > 1) btn('Alle angleichen', () => requestAction('sync', true));
+    if (s.has.errReset) btn('Störung zurücksetzen', () => requestAction('errReset', true));
+    if (s.has.filterReset) btn('Filter zurücksetzen', () => requestAction('filterReset', true));
+    if (s.lock !== null) btn(s.lock ? 'Fernbedienung freigeben' : 'Fernbedienung sperren', () => requestAction('lock', !s.lock));
+  }
+
+  // ---------- Zeitschaltuhr ----------
+  $('tbtn').onclick = () => {
+    edit = JSON.parse(JSON.stringify(s.timers || []));
+    renderTimers();
+    $('pop').classList.add('show');
+  };
+  $('tcancel').onclick = () => $('pop').classList.remove('show');
+  $('tadd').onclick = () => {
+    edit.push({ enabled: true, time: '07:00', days: [1,2,3,4,5], action: 'on', temp: s.set || 22, mode: '', fan: -1 });
+    renderTimers();
+  };
+  $('tsave').onclick = () => {
+    requestAction('timers', JSON.stringify(edit));
+    $('pop').classList.remove('show');
+  };
+
+  function renderTimers() {
+    const l = $('tlist');
+    l.innerHTML = edit.length ? '' : '<p style="opacity:.6">Noch keine Schaltzeiten.</p>';
+    edit.forEach((t, i) => {
+      const on = t.action === 'on';
+      const modeOpts = '<option value="">Modus unverändert</option>' +
+        (s.modeList || ['heat', 'cool', 'fan']).map(k => `<option value="${k}" ${t.mode === k ? 'selected' : ''}>${MODES[k][1]}</option>`).join('');
+      const fanOpts = '<option value="-1">Lüfter unverändert</option>' +
+        FANS.map((n, j) => `<option value="${j}" ${Number(t.fan) === j ? 'selected' : ''}>${n}</option>`).join('');
+      const d = document.createElement('div');
+      d.className = 't';
+      d.innerHTML = `
+        <div class="rowx">
+          <input type="checkbox" ${t.enabled ? 'checked' : ''} data-k="enabled">
+          <input type="time" value="${t.time}" data-k="time">
+          <select data-k="action">
+            <option value="on" ${on ? 'selected' : ''}>Ein</option>
+            <option value="off" ${!on ? 'selected' : ''}>Aus</option>
+          </select>
+          <button class="act-btn del" data-del>✕</button>
+        </div>
+        ${on ? `<div class="rowx">
+          <input type="number" step="${s.step}" min="${s.min}" max="${s.max}" value="${t.temp ?? ''}" data-k="temp" style="width:70px"> °C
+          ${s.has.mode ? `<select data-k="mode">${modeOpts}</select>` : ''}
+          ${s.has.fan ? `<select data-k="fan">${fanOpts}</select>` : ''}
+        </div>` : ''}
+        <div class="rowx">${DAYS.map((n, j) =>
+          `<button class="day ${t.days.includes(j + 1) ? 'sel' : ''}" data-day="${j + 1}">${n}</button>`).join('')}</div>`;
+      d.querySelectorAll('[data-k]').forEach(inp => inp.onchange = () => {
+        const k = inp.dataset.k;
+        if (inp.type === 'checkbox') t[k] = inp.checked;
+        else if (k === 'temp') t[k] = parseFloat(inp.value);
+        else if (k === 'fan') t[k] = parseInt(inp.value, 10);
+        else t[k] = inp.value;
+        if (k === 'action') renderTimers();
+      });
+      d.querySelectorAll('[data-day]').forEach(b => b.onclick = () => {
+        const n = Number(b.dataset.day);
+        t.days = t.days.includes(n) ? t.days.filter(x => x !== n) : [...t.days, n];
+        renderTimers();
+      });
+      d.querySelector('[data-del]').onclick = () => { edit.splice(i, 1); renderTimers(); };
+      l.appendChild(d);
+    });
+  }
+</script>

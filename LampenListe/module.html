@@ -1,20 +1,25 @@
 <style>
-  body { margin:0; font-family: system-ui, sans-serif; color: var(--content-color, #eee); }
-  .list { display:flex; flex-direction:column; gap:6px; padding:8px; overflow-y:auto; height:100%; box-sizing:border-box; }
-  .row { background: rgba(255,255,255,.06); border-radius:14px; padding:10px 14px; }
+  :root { --mc:#2563eb; --txt:#2f3437; --sub:#6b7280; --cell:#eef2f8; --line:#e3e8ef;
+          --ok:#1a9a46; --okbg:#e5f5ea; --warn:#d97706; --warnbg:#fff1dc; --err:#d6204e; --errbg:#fdeaf0;
+          --head:48px; /* Platz für die Kopfzeile, die Symcon über jede Kachel legt */ }
+  body { margin:0; font-family: Poppins, 'Segoe UI', system-ui, sans-serif; color:var(--txt); }
+  button, input, select { font-family:inherit; }
+  .list { display:flex; flex-direction:column; gap:8px; padding:var(--head) 14px 12px; overflow-y:auto; height:100%; box-sizing:border-box; }
+  .row { background:var(--cell); border-radius:12px; padding:11px 14px; }
   .head { display:flex; align-items:center; gap:12px; cursor:pointer; }
-  .dot { width:12px; height:12px; border-radius:50%; background:#555; flex:none; }
-  .on .dot { background: var(--lc, #ffc861); box-shadow:0 0 10px var(--lc, #ffc861); }
-  .name { flex:1; font-size:15px; }
-  .val { opacity:.6; font-size:13px; min-width:40px; text-align:right; }
-  .tgl { width:44px; height:24px; border-radius:12px; background:#444; position:relative; flex:none; }
-  .tgl::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.2s; }
-  .on .tgl { background:#4caf50; }
+  .dot { width:12px; height:12px; border-radius:50%; background:#cdd5e0; flex:none; }
+  .on .dot { background:var(--lc, #f5b301); box-shadow:0 0 0 4px rgba(245,179,1,.18); }
+  .name { flex:1; font-size:15px; font-weight:500; }
+  .val { color:var(--sub); font-size:13px; min-width:42px; text-align:right; }
+  .on .val { color:var(--txt); font-weight:600; }
+  .tgl { width:44px; height:24px; border-radius:12px; background:#cdd5e0; position:relative; flex:none; transition:.2s; }
+  .tgl::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.2s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+  .on .tgl { background:var(--ok); }
   .on .tgl::after { left:23px; }
   .det { display:none; padding-top:10px; }
   .open .det { display:block; }
-  input[type=range] { width:100%; margin:6px 0; }
-  .temp { background: linear-gradient(90deg,#ffb35c,#fff,#bcd8ff); border-radius:6px; }
+  input[type=range] { width:100%; margin:6px 0; accent-color:var(--mc); }
+  .temp { background:linear-gradient(90deg,#ffb35c,#fff,#bcd8ff); border-radius:6px; }
   input[type=color] { width:100%; height:32px; border:none; background:none; }
 </style>
 <div class="list" id="list"></div>

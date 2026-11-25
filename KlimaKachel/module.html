@@ -1,48 +1,59 @@
 <style>
-  :root { --mc: #2e9bff; }
-  body { margin:0; font-family: system-ui, sans-serif; color: var(--content-color, #eee); }
-  .wrap { display:flex; flex-direction:column; align-items:center; gap:8px; height:100%; box-sizing:border-box; padding:10px; overflow-y:auto; }
+  :root { --mc:#2563eb; --txt:#2f3437; --sub:#6b7280; --cell:#eef2f8; --line:#e3e8ef;
+          --ok:#1a9a46; --okbg:#e5f5ea; --warn:#d97706; --warnbg:#fff1dc; --err:#d6204e; --errbg:#fdeaf0;
+          --head:48px; /* Platz für die Kopfzeile, die Symcon über jede Kachel legt */ }
+  body { margin:0; font-family: Poppins, 'Segoe UI', system-ui, sans-serif; color:var(--txt); }
+  button, input, select { font-family:inherit; }
+  .wrap { display:flex; flex-direction:column; align-items:center; gap:10px; height:100%; box-sizing:border-box; padding:var(--head) 16px 14px; overflow-y:auto; }
   .top { width:100%; display:flex; align-items:center; gap:6px; }
-  .title { flex:1; text-align:center; font-size:16px; font-weight:600; }
-  .btn { border:none; border-radius:50%; width:38px; height:38px; background:rgba(255,255,255,.1); color:inherit; font-size:17px; cursor:pointer; flex:none; }
-  .pw.on { background:var(--mc); box-shadow:0 0 14px var(--mc); color:#fff; }
-  .lk.locked { background:#c0392b; color:#fff; }
-  .chips { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
-  .chip { border:none; border-radius:12px; padding:4px 10px; font-size:12px; background:rgba(255,255,255,.08); color:inherit; }
-  .chip.err { background:#c0392b; color:#fff; cursor:pointer; }
-  .chip.warn { background:#e6a817; color:#222; cursor:pointer; }
-  .chip.ok { background:rgba(58,210,159,.25); }
-  .dial { position:relative; width:min(78vw, 55vh); max-width:250px; aspect-ratio:1; touch-action:none; }
+  .title:empty { display:none; }
+  .top .btn:first-of-type { margin-left:auto; }
+  .title { order:-1; flex:1; text-align:left; font-size:18px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .btn { border:none; border-radius:50%; width:36px; height:36px; background:var(--cell); color:var(--txt); font-size:16px; cursor:pointer; flex:none; }
+  .pw.on { background:var(--mc); color:#fff; }
+  .lk.locked { background:var(--errbg); color:var(--err); }
+  .chips { width:100%; display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { border:none; border-radius:999px; padding:4px 12px; font-size:13px; font-weight:500; background:var(--cell); color:var(--sub); }
+  .chip.ok { background:var(--okbg); color:var(--ok); }
+  .chip.ok::before { content:'\25CF\00a0'; font-size:9px; vertical-align:2px; }
+  .chip.warn { background:var(--warnbg); color:var(--warn); cursor:pointer; }
+  .chip.err { background:var(--errbg); color:var(--err); cursor:pointer; }
+  .dial { position:relative; width:min(78vw, 52vh); max-width:240px; aspect-ratio:1; touch-action:none; }
   svg { width:100%; height:100%; }
-  #fg { stroke: var(--mc); transition: stroke .3s; }
+  #bg { stroke:var(--line); }
+  #fg { stroke:var(--mc); transition:stroke .3s; }
+  #knob { fill:#fff; stroke:var(--mc); stroke-width:3; }
   .center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
-  .soll { font-size:42px; font-weight:300; }
-  .ist { font-size:14px; opacity:.65; }
-  .mlabel { font-size:12px; color:var(--mc); margin-top:2px; font-weight:600; }
+  .soll { font-size:46px; font-weight:700; letter-spacing:-1px; line-height:1.1; }
+  .soll .u { font-size:18px; font-weight:500; margin-left:3px; letter-spacing:0; }
+  .ist { font-size:14px; color:var(--sub); }
+  .mlabel { font-size:13px; color:var(--mc); margin-top:3px; font-weight:600; }
   .off .soll, .off #fg, .off #knob { opacity:.35; }
   .pm { display:flex; gap:60px; margin-top:-14px; }
-  .seg-wrap { width:100%; max-width:360px; }
-  .seg-l { font-size:12px; opacity:.6; margin:0 0 4px 4px; }
-  .seg { display:flex; background:rgba(255,255,255,.06); border-radius:12px; padding:3px; gap:3px; }
-  .seg button { flex:1; border:none; border-radius:9px; padding:6px 2px; background:none; color:inherit; font-size:12px; cursor:pointer; }
-  .seg button.act { background:var(--mc); color:#fff; }
+  .seg-wrap { width:100%; }
+  .seg-l { font-size:13px; color:var(--sub); margin:0 0 4px 2px; }
+  .seg { display:flex; background:var(--cell); border-radius:12px; padding:4px; gap:4px; }
+  .seg button { flex:1; border:none; border-radius:9px; padding:7px 2px; background:none; color:var(--txt); font-size:13px; cursor:pointer; }
+  .seg button.act { background:var(--mc); color:#fff; font-weight:500; }
   .ico { font-size:16px; display:block; }
-  .pop { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:10; }
+  .pop { position:fixed; inset:0; background:rgba(30,40,55,.35); display:none; align-items:center; justify-content:center; z-index:10; }
   .pop.show { display:flex; }
-  .box { background:#1f2329; color:#eee; border-radius:16px; padding:16px; width:92%; max-width:420px; max-height:85%; overflow-y:auto; box-sizing:border-box; }
-  .box h3 { margin:0 0 10px; }
-  .ir { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:14px; }
-  .red { color:#ff6b5b; } .yel { color:#f5c542; }
-  .t { background:rgba(255,255,255,.06); border-radius:12px; padding:10px; margin-bottom:8px; display:flex; flex-direction:column; gap:8px; }
+  .box { background:#fff; color:var(--txt); border-radius:16px; padding:18px; width:92%; max-width:440px; max-height:85%; overflow-y:auto; box-sizing:border-box; box-shadow:0 10px 30px rgba(0,0,0,.15); }
+  .box h3 { margin:0 0 10px; font-size:18px; font-weight:500; }
+  .ir { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .ir span:first-child { color:var(--sub); }
+  .ir span:last-child { font-weight:600; text-align:right; }
+  .red { color:var(--err) !important; } .yel { color:var(--warn) !important; }
+  .t { background:var(--cell); border-radius:12px; padding:10px; margin-bottom:8px; display:flex; flex-direction:column; gap:8px; }
   .rowx { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
   .t .rowx { margin-top:0; }
   .end { justify-content:flex-end; }
-  .day { width:30px; height:30px; border-radius:50%; border:none; background:#333; color:#ccc; font-size:11px; cursor:pointer; }
-  .day.sel { background:#2e9bff; color:#fff; }
-  input, select { background:#2a2f36; color:#eee; border:1px solid #444; border-radius:8px; padding:5px; }
-  .act-btn { border:none; border-radius:10px; padding:8px 12px; cursor:pointer; background:#2e9bff; color:#fff; }
-  .ghost { background:#333; }
-  .del { background:#c0392b; }
+  .day { width:30px; height:30px; border-radius:50%; border:none; background:#fff; color:var(--sub); font-size:11px; cursor:pointer; }
+  .day.sel { background:var(--mc); color:#fff; }
+  input, select { background:#fff; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:5px; }
+  .act-btn { border:none; border-radius:10px; padding:8px 12px; cursor:pointer; background:var(--mc); color:#fff; font-weight:500; }
+  .ghost { background:var(--cell); color:var(--txt); }
+  .del { background:var(--errbg); color:var(--err); }
 </style>
 
 <div class="wrap" id="wrap">
@@ -99,11 +110,11 @@
   const CX = 100, CY = 100, R = 80, START = 135, SWEEP = 270;
   const DAYS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
   const MODES = {
-    auto: ['⟳', 'Auto', '#8e7cff'],
-    heat: ['☀', 'Heizen', '#ff6b3d'],
-    cool: ['❄', 'Kühlen', '#2e9bff'],
-    fan:  ['✲', 'Lüften', '#3ad29f'],
-    dry:  ['💧', 'Trocknen', '#f5c542']
+    auto: ['⟳', 'Auto', '#7c3aed'],
+    heat: ['☀', 'Heizen', '#ea580c'],
+    cool: ['❄', 'Kühlen', '#2563eb'],
+    fan:  ['✲', 'Nur Lüfter', '#0f9f8a'],
+    dry:  ['💧', 'Trocknen', '#d97706']
   };
   const FANS = ['Niedrig', 'Mittel', 'Hoch', 'Power'];
   let s = { has: {} }, dragVal = null, edit = [];
@@ -127,7 +138,7 @@
 
   function render() {
     const m = MODES[s.mode];
-    document.documentElement.style.setProperty('--mc', m ? m[2] : '#2e9bff');
+    document.documentElement.style.setProperty('--mc', m ? m[2] : '#2563eb');
     $('title').textContent = s.title || '';
     $('pw').classList.toggle('on', !!s.power);
     const lk = $('lk');
@@ -142,7 +153,7 @@
     renderChips();
 
     seg('modes', s.has.mode,
-      Object.keys(MODES).map(k => ({ v: k, h: `<span class="ico">${MODES[k][0]}</span>${MODES[k][1]}`, a: s.mode === k })),
+      (s.modeList || ['heat', 'cool', 'fan']).map(k => ({ v: k, h: `<span class="ico">${MODES[k][0]}</span>${MODES[k][1]}`, a: s.mode === k })),
       v => requestAction('mode', v));
 
     seg('fans', s.has.fan,
@@ -188,6 +199,7 @@
     if (s.has.lock && s.lock) add('🔒 Fernbedienung gesperrt · freigeben', 'warn', () => requestAction('lock', false));
     if (s.power && s.comp === true) add('Verdichter läuft', 'ok');
     if (s.power && s.thermo === false) add('Temperatur erreicht');
+    if (!s.comm && !s.err && !s.filter && !(s.has.lock && s.lock) && (s.comm !== null || s.errCode !== null)) add('Alle Werte OK', 'ok');
   }
 
   function drawDial(v) {
@@ -198,7 +210,7 @@
     const [x, y] = pt(a);
     $('knob').setAttribute('cx', x);
     $('knob').setAttribute('cy', y);
-    $('soll').textContent = fmt(v) + '°';
+    $('soll').innerHTML = fmt(v) + '<span class="u">°C</span>';
   }
 
   function snap(raw) {
@@ -287,7 +299,7 @@
     edit.forEach((t, i) => {
       const on = t.action === 'on';
       const modeOpts = '<option value="">Modus unverändert</option>' +
-        Object.keys(MODES).map(k => `<option value="${k}" ${t.mode === k ? 'selected' : ''}>${MODES[k][1]}</option>`).join('');
+        (s.modeList || ['heat', 'cool', 'fan']).map(k => `<option value="${k}" ${t.mode === k ? 'selected' : ''}>${MODES[k][1]}</option>`).join('');
       const fanOpts = '<option value="-1">Lüfter unverändert</option>' +
         FANS.map((n, j) => `<option value="${j}" ${Number(t.fan) === j ? 'selected' : ''}>${n}</option>`).join('');
       const d = document.createElement('div');
