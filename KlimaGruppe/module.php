@@ -78,11 +78,11 @@ class KlimaGruppe extends IPSModule
     {
         switch ($Ident) {
             case 'lock':
-                // Die Sperre wirkt am Gateway auf alle Geräte: einmal senden reicht
+                // Sperre pro Gerät: an alle Geräte der Gruppe senden
+                // (wichtig bei mehreren Geräten an einer gemeinsamen Kabelfernbedienung)
                 foreach ($this->states() as $s) {
                     if ($s['lock'] !== null) {
                         $this->send($s['id'], 'lock', (bool)$Value);
-                        break;
                     }
                 }
                 break;
@@ -423,7 +423,10 @@ class KlimaGruppe extends IPSModule
         $mins = array_column($st, 'min');
         $maxs = array_column($st, 'max');
         $steps = array_column($st, 'step');
-        $lock = $any($st, 'lock');
+        // Sperre: gesperrt nur, wenn alle Geräte gesperrt sind; sonst ggf. "teilweise"
+        $locks = array_values(array_filter(array_column($st, 'lock'), fn ($v) => $v !== null));
+        $lock = $locks ? !in_array(false, $locks, true) : null;
+        $lockMixed = $locks && in_array(true, $locks, true) && in_array(false, $locks, true);
 
         return json_encode([
             'title'   => $this->ReadPropertyString('Title'),
@@ -446,7 +449,8 @@ class KlimaGruppe extends IPSModule
                 'mode'  => $modeMixed,
                 'set'   => $setMixed,
                 'fan'   => $fanMixed,
-                'vane'  => $vaneMixed || $swingMixed
+                'vane'  => $vaneMixed || $swingMixed,
+                'lock'  => $lockMixed
             ],
             'comm'    => $comms ? true : $any($st, 'comm'),
             'comms'   => $comms,

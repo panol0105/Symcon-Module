@@ -76,13 +76,24 @@
         { "type": "SelectVariable", "name": "FilterResetID", "caption": "Filter zurücksetzen" },
         { "type": "SelectVariable", "name": "CompID", "caption": "Verdichter-Status" },
         { "type": "SelectVariable", "name": "ThermoID", "caption": "Thermo Ein/Aus" },
-        { "type": "SelectVariable", "name": "LockID", "caption": "Fernbedienungssperre Steuern (all units)" },
+        { "type": "SelectVariable", "name": "LockID", "caption": "Fernbedienungssperre Steuern" },
         { "type": "SelectVariable", "name": "LockStatID", "caption": "Fernbedienungssperre Status (optional)" },
         { "type": "CheckBox", "name": "ShowLock", "caption": "Sperr-Taste in der Kachel anzeigen" }
       ]
     },
     {
-      "type": "ExpansionPanel", "caption": "Diagnosewerte im Status-Fenster",
+      "type": "ExpansionPanel", "caption": "Diagnose vom Gateway",
+      "items": [
+        { "type": "SelectVariable", "name": "ExpValveID", "caption": "Expansionsventil (Pulse)" },
+        { "type": "SelectVariable", "name": "DecFreqID", "caption": "Decision-Frequenz" },
+        { "type": "SelectVariable", "name": "DemFreqID", "caption": "Demand-Frequenz" },
+        { "type": "SelectVariable", "name": "HexLow1ID", "caption": "Wärmetauscher 1 Temperatur" },
+        { "type": "SelectVariable", "name": "HexLow2ID", "caption": "Wärmetauscher 2 Temperatur" },
+        { "type": "SelectVariable", "name": "HexLow3ID", "caption": "Wärmetauscher 3 Temperatur" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel", "caption": "Weitere Diagnosewerte (Variablen)",
       "items": [
         {
           "type": "List", "name": "Diagnostics", "caption": "Weitere Werte",

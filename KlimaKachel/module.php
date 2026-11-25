@@ -36,15 +36,27 @@ class KlimaKachel extends IPSModule
         'CompID'        => ['Verdichter', 1, 1, false],
         'ThermoID'      => ['Thermo Ein/Aus', 1, 1, false],
         'LockID'        => ['Fernbedienungssperre', 1, 2, true],
-        'LockStatID'    => ['Fernbedienungssperre Status', 1, 2, false]
+        'LockStatID'    => ['Fernbedienungssperre Status', 1, 2, false],
+        // Diagnose
+        'ExpValveID'    => ['Expansionsventil', 8, 1, false],
+        'DecFreqID'     => ['Decision-Frequenz', 14, 33, false],
+        'DemFreqID'     => ['Demand-Frequenz', 14, 33, false],
+        'HexLow1ID'     => ['Wärmetauscher 1', 9, 1, false],
+        'HexLow2ID'     => ['Wärmetauscher 2', 9, 1, false],
+        'HexLow3ID'     => ['Wärmetauscher 3', 9, 1, false]
     ];
+
+    // Diagnose-Datenpunkte, die im Status-Fenster erscheinen; Temperaturen auch im Diagramm
+    private const DIAG = ['ExpValveID', 'DecFreqID', 'DemFreqID', 'HexLow1ID', 'HexLow2ID', 'HexLow3ID'];
+    private const DIAG_TEMP = ['HexLow1ID', 'HexLow2ID', 'HexLow3ID'];
 
     private const VARS = [
         'PowerCtrlID', 'PowerStatID', 'ModeCtrlID', 'ModeStatID',
         'SetCtrlID', 'SetStatID', 'ActID', 'ExtSensorID', 'KnxAmbCtrlID',
         'FanCtrlID', 'FanStatID', 'VaneCtrlID', 'VaneStatID', 'SwingCtrlID', 'SwingStatID',
         'CommErrID', 'ErrCodeID', 'ErrResetID', 'FilterID', 'FilterResetID',
-        'CompID', 'ThermoID', 'LockID', 'LockStatID'
+        'CompID', 'ThermoID', 'LockID', 'LockStatID',
+        'ExpValveID', 'DecFreqID', 'DemFreqID', 'HexLow1ID', 'HexLow2ID', 'HexLow3ID'
     ];
 
     private const MODES = [
@@ -467,7 +479,10 @@ class KlimaKachel extends IPSModule
         if ($this->valid($this->vid('ExtSensorID'))) {
             $list[] = ['extra', 'Raumfühler', $this->vid('ExtSensorID')];
         }
-        // Diagnosewerte mit Temperatur-Profil (°C), z. B. Wärmetauscher, Außengerät
+        foreach (self::DIAG_TEMP as $key) {
+            $list[] = ['extra', self::KNX[$key][0], $this->vid($key)];
+        }
+        // Diagnosewerte mit Temperatur-Profil (°C), z. B. Außengerät
         foreach ($this->diag() as $d) {
             $id = (int)($d['VariableID'] ?? 0);
             if ($this->valid($id) && $this->isTemperature($id)) {
@@ -711,6 +726,12 @@ class KlimaKachel extends IPSModule
         $swing = $this->read('SwingStatID', 'SwingCtrlID');
 
         $diag = [];
+        foreach (self::DIAG as $key) {
+            $id = $this->vid($key);
+            if ($this->valid($id)) {
+                $diag[] = ['n' => self::KNX[$key][0], 'v' => GetValueFormatted($id)];
+            }
+        }
         foreach ($this->diag() as $d) {
             $id = (int)($d['VariableID'] ?? 0);
             if ($this->valid($id)) {

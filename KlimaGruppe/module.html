@@ -277,9 +277,10 @@
       if (mx.vane) what.push('Lamellen');
       add('≠ ' + what.join(', ') + ' · angleichen', 'warn', () => requestAction('sync', true));
     }
+    if (s.has.lock && mx.lock) add('Fernbedienung teilweise gesperrt · alle sperren', 'warn', () => { hold('lock', true); render(); requestAction('lock', true); });
     if (s.has.lock && s.lock) add('Fernbedienung gesperrt · freigeben', 'warn', () => { hold('lock', false); render(); requestAction('lock', false); });
     if (s.power && s.comp === true) add('Verdichter läuft', 'ok');
-    if (!s.comm && !s.err && !s.filter && !(s.has.lock && s.lock) && (s.comm !== null || s.errCode !== null) && !(s.mixed && (s.mixed.power || s.mixed.mode || s.mixed.set || s.mixed.fan || s.mixed.vane))) add('Alle Werte OK', 'ok');
+    if (!s.comm && !s.err && !s.filter && !(s.has.lock && s.lock) && (s.comm !== null || s.errCode !== null) && !(s.mixed && (s.mixed.power || s.mixed.mode || s.mixed.set || s.mixed.fan || s.mixed.vane || s.mixed.lock))) add('Alle Werte OK', 'ok');
   }
 
   function drawDial(v) {
