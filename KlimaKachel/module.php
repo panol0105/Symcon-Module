@@ -123,7 +123,7 @@ class KlimaKachel extends IPSModule
             }
         }
         if (is_dir(__DIR__ . '/../KlimaRaum')) {
-            $this->LogMessage('Im Modul-Repository liegt noch der alte Ordner „KlimaRaum“. Er hat dieselbe Kennung wie „KlimaGruppe“ und muss gelöscht werden, sonst lädt Symcon die alte Gruppen-Kachel.', KL_WARNING);
+            $this->LogMessage('Im Modul-Repository liegt noch der veraltete Ordner „KlimaRaum“. Bitte eine neue „KlimaGruppe“-Instanz anlegen, die alte Raum-Instanz löschen und den Ordner „KlimaRaum“ aus dem Repository entfernen.', KL_WARNING);
         }
         // Beim Systemstart erst loslegen, wenn alle Module geladen sind
         if (IPS_GetKernelRunlevel() !== KR_READY) {

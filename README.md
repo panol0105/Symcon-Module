@@ -10,9 +10,13 @@ Module für IP-Symcon ab Version 7 (getestet für 9.x), Kachel-Visualisierung.
 
 Die Kacheln nutzen die Schrift Poppins aus dem lokalen Ordner `libs/fonts` (eingebettet, keine Internetverbindung nötig). Poppins steht unter der SIL Open Font License, siehe `libs/fonts/OFL-Poppins.txt`.
 
-## Update von Version 1.3 oder älter
+## Update von Version 2.2 oder älter
 
-Das Gruppen-Modul hieß früher „KlimaRaum“. Den Ordner `KlimaRaum` bitte aus dem Repository löschen. Er hat dieselbe Kennung wie „KlimaGruppe“, sonst lädt Symcon die alte Gruppen-Kachel. Bestehende Gruppen-Instanzen laufen danach als KlimaGruppe weiter.
+Das Gruppen-Modul hieß früher „KlimaRaum“ und hat ab Version 2.3 eine eigene Kennung.
+
+1. Eine neue Instanz „KlimaGruppe“ anlegen, die Geräte eintragen und die neue Instanz in die Visualisierung aufnehmen.
+2. Die alte Raum- bzw. Gruppen-Instanz löschen.
+3. Den Ordner `KlimaRaum` aus dem Repository löschen.
 
 ## Installation
 
