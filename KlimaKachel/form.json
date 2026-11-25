@@ -1,0 +1,79 @@
+{
+  "elements": [
+    { "type": "ValidationTextBox", "name": "Title", "caption": "Name in der Kachel" },
+    {
+      "type": "Select", "name": "ModeCoding", "caption": "Codierung Betriebsart",
+      "options": [
+        { "caption": "DPT 20.105 (0 Auto, 1 Heizen, 3 Kühlen, 9 Lüften, 14 Trocknen)", "value": "20105" },
+        { "caption": "DPT 5.x (0 Auto, 1 Heizen, 2 Trocknen, 3 Lüften, 4 Kühlen)", "value": "5A" },
+        { "caption": "DPT 5.x (0 Kühlen, 1 Heizen, 2 Lüften, 3 Trocknen, 4 Auto)", "value": "5B" }
+      ]
+    },
+    {
+      "type": "RowLayout",
+      "items": [
+        { "type": "NumberSpinner", "name": "MinTemp", "caption": "Minimum", "digits": 1, "suffix": " °C" },
+        { "type": "NumberSpinner", "name": "MaxTemp", "caption": "Maximum", "digits": 1, "suffix": " °C" },
+        { "type": "NumberSpinner", "name": "Step", "caption": "Schrittweite", "digits": 1, "suffix": " °C" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel", "caption": "Ein/Aus und Betriebsart",
+      "items": [
+        { "type": "SelectVariable", "name": "PowerCtrlID", "caption": "Ein/Aus Steuern" },
+        { "type": "SelectVariable", "name": "PowerStatID", "caption": "Ein/Aus Status" },
+        { "type": "SelectVariable", "name": "ModeCtrlID", "caption": "Betriebsart Steuern" },
+        { "type": "SelectVariable", "name": "ModeStatID", "caption": "Betriebsart Status" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel", "caption": "Temperatur",
+      "items": [
+        { "type": "SelectVariable", "name": "SetCtrlID", "caption": "Solltemperatur Steuern" },
+        { "type": "SelectVariable", "name": "SetStatID", "caption": "Solltemperatur Status" },
+        { "type": "SelectVariable", "name": "ActID", "caption": "Ist-Temperatur (AC ambient)" },
+        { "type": "SelectVariable", "name": "ExtSensorID", "caption": "Eigener Raumfühler (Quelle, optional)" },
+        { "type": "SelectVariable", "name": "KnxAmbCtrlID", "caption": "KNX ambient temperature am Gateway (Ziel)" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel", "caption": "Lüfter und Lamellen",
+      "items": [
+        { "type": "SelectVariable", "name": "FanCtrlID", "caption": "Lüfterstufe Steuern (0–3)" },
+        { "type": "SelectVariable", "name": "FanStatID", "caption": "Lüfterstufe Status" },
+        { "type": "SelectVariable", "name": "VaneCtrlID", "caption": "Lamellenposition Steuern (1–4)" },
+        { "type": "SelectVariable", "name": "VaneStatID", "caption": "Lamellenposition Status" },
+        { "type": "SelectVariable", "name": "SwingCtrlID", "caption": "Swing Steuern" },
+        { "type": "SelectVariable", "name": "SwingStatID", "caption": "Swing Status" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel", "caption": "Meldungen",
+      "items": [
+        { "type": "SelectVariable", "name": "CommErrID", "caption": "Kommunikationsfehler" },
+        { "type": "SelectVariable", "name": "ErrCodeID", "caption": "Störcode" },
+        { "type": "SelectVariable", "name": "ErrResetID", "caption": "Störung zurücksetzen" },
+        { "type": "SelectVariable", "name": "FilterID", "caption": "Filtermeldung" },
+        { "type": "SelectVariable", "name": "FilterResetID", "caption": "Filter zurücksetzen" },
+        { "type": "SelectVariable", "name": "CompID", "caption": "Verdichter-Status" },
+        { "type": "SelectVariable", "name": "ThermoID", "caption": "Thermo Ein/Aus" },
+        { "type": "SelectVariable", "name": "LockID", "caption": "Fernbedienungssperre Steuern (all units)" },
+        { "type": "SelectVariable", "name": "LockStatID", "caption": "Fernbedienungssperre Status (optional)" },
+        { "type": "CheckBox", "name": "ShowLock", "caption": "Sperr-Taste in der Kachel anzeigen" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel", "caption": "Diagnosewerte im Status-Fenster",
+      "items": [
+        {
+          "type": "List", "name": "Diagnostics", "caption": "Weitere Werte",
+          "add": true, "delete": true, "changeOrder": true,
+          "columns": [
+            { "caption": "Bezeichnung", "name": "Name", "width": "250px", "add": "Wert", "edit": { "type": "ValidationTextBox" } },
+            { "caption": "Variable", "name": "VariableID", "width": "auto", "add": 0, "edit": { "type": "SelectVariable" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

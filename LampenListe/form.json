@@ -1,0 +1,19 @@
+{
+  "elements": [
+    {
+      "type": "List",
+      "name": "Lamps",
+      "caption": "Lampen",
+      "add": true,
+      "delete": true,
+      "changeOrder": true,
+      "columns": [
+        { "caption": "Name", "name": "Name", "width": "200px", "add": "Lampe", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "Schalten (Bool)", "name": "SwitchID", "width": "200px", "add": 0, "edit": { "type": "SelectVariable" } },
+        { "caption": "Helligkeit", "name": "DimID", "width": "200px", "add": 0, "edit": { "type": "SelectVariable" } },
+        { "caption": "Farbtemperatur", "name": "TempID", "width": "200px", "add": 0, "edit": { "type": "SelectVariable" } },
+        { "caption": "Farbe (HexColor)", "name": "ColorID", "width": "auto", "add": 0, "edit": { "type": "SelectVariable" } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; color: var(--content-color, #eee); }
+  .list { display:flex; flex-direction:column; gap:6px; padding:8px; overflow-y:auto; height:100%; box-sizing:border-box; }
+  .row { background: rgba(255,255,255,.06); border-radius:14px; padding:10px 14px; }
+  .head { display:flex; align-items:center; gap:12px; cursor:pointer; }
+  .dot { width:12px; height:12px; border-radius:50%; background:#555; flex:none; }
+  .on .dot { background: var(--lc, #ffc861); box-shadow:0 0 10px var(--lc, #ffc861); }
+  .name { flex:1; font-size:15px; }
+  .val { opacity:.6; font-size:13px; min-width:40px; text-align:right; }
+  .tgl { width:44px; height:24px; border-radius:12px; background:#444; position:relative; flex:none; }
+  .tgl::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.2s; }
+  .on .tgl { background:#4caf50; }
+  .on .tgl::after { left:23px; }
+  .det { display:none; padding-top:10px; }
+  .open .det { display:block; }
+  input[type=range] { width:100%; margin:6px 0; }
+  .temp { background: linear-gradient(90deg,#ffb35c,#fff,#bcd8ff); border-radius:6px; }
+  input[type=color] { width:100%; height:32px; border:none; background:none; }
+</style>
+<div class="list" id="list"></div>
+<script>
+  const open = new Set();
+  let lamps = [];
+
+  function handleMessage(data) {
+    lamps = typeof data === 'string' ? JSON.parse(data) : data;
+    render();
+  }
+
+  function render() {
+    const list = document.getElementById('list');
+    // Während ein Slider gezogen wird, nicht neu rendern
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    list.innerHTML = '';
+    lamps.forEach(l => {
+      const r = document.createElement('div');
+      r.className = 'row' + (l.on ? ' on' : '') + (open.has(l.i) ? ' open' : '');
+      if (l.color) r.style.setProperty('--lc', l.color);
+      const val = l.dim !== undefined ? (l.on ? l.dim + '%' : 'Aus') : (l.on ? 'An' : 'Aus');
+      r.innerHTML = `<div class="head"><div class="dot"></div><div class="name">${l.name}</div><div class="val">${val}</div><div class="tgl"></div></div><div class="det"></div>`;
+      r.querySelector('.tgl').onclick = e => { e.stopPropagation(); requestAction('switch_' + l.i, !l.on); };
+      if (l.type !== 'switch') {
+        r.querySelector('.head').onclick = () => { open.has(l.i) ? open.delete(l.i) : open.add(l.i); render(); };
+        const det = r.querySelector('.det');
+        det.appendChild(slider(0, 100, l.dim, v => requestAction('dim_' + l.i, v)));
+        if (l.temp !== undefined) {
+          const s = slider(l.tmin, l.tmax, l.temp, v => requestAction('temp_' + l.i, v));
+          s.classList.add('temp');
+          det.appendChild(s);
+        }
+        if (l.color) {
+          const c = document.createElement('input');
+          c.type = 'color'; c.value = l.color;
+          c.onchange = () => { requestAction('color_' + l.i, c.value); c.blur(); };
+          det.appendChild(c);
+        }
+      }
+      list.appendChild(r);
+    });
+  }
+
+  function slider(min, max, val, cb) {
+    const s = document.createElement('input');
+    s.type = 'range'; s.min = min; s.max = max; s.value = val;
+    s.onchange = () => { cb(Number(s.value)); s.blur(); };
+    return s;
+  }
+</script>

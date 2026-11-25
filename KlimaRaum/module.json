@@ -1,0 +1,11 @@
+{
+  "id": "{5D2A8C41-7E3B-4F96-A0C8-1B4E9F2D6A35}",
+  "name": "KlimaRaum",
+  "type": 3,
+  "vendor": "",
+  "aliases": ["Klima Raum", "Klima Gruppe"],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "KR"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "{4E8B2D17-6C3A-4A90-B5F1-92D7E0C4A622}",
+  "name": "LampenListe",
+  "type": 3,
+  "vendor": "",
+  "aliases": ["Lampen Liste"],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "LL"
+}

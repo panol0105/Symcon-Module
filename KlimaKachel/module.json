@@ -1,0 +1,11 @@
+{
+  "id": "{B3F6A912-4D7E-4C58-9A21-6E0D8C3F5B74}",
+  "name": "KlimaKachel",
+  "type": 3,
+  "vendor": "",
+  "aliases": ["Klima Kachel"],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "KK"
+}
