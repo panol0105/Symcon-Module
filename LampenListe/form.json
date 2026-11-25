@@ -1,18 +1,31 @@
 {
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Aktiv" },
+    { "code": 201, "icon": "error", "caption": "Mindestens eine Gruppenadresse konnte nicht angelegt werden (Details im Meldungen-Fenster)" }
+  ],
   "elements": [
     {
       "type": "List",
       "name": "Lamps",
-      "caption": "Lampen",
+      "caption": "Lampen (Variable auswählen oder Gruppenadressen eintragen)",
       "add": true,
       "delete": true,
       "changeOrder": true,
+      "rowCount": 10,
       "columns": [
-        { "caption": "Name", "name": "Name", "width": "200px", "add": "Lampe", "edit": { "type": "ValidationTextBox" } },
-        { "caption": "Schalten (Bool)", "name": "SwitchID", "width": "200px", "add": 0, "edit": { "type": "SelectVariable" } },
-        { "caption": "Helligkeit", "name": "DimID", "width": "200px", "add": 0, "edit": { "type": "SelectVariable" } },
-        { "caption": "Farbtemperatur", "name": "TempID", "width": "200px", "add": 0, "edit": { "type": "SelectVariable" } },
-        { "caption": "Farbe (HexColor)", "name": "ColorID", "width": "auto", "add": 0, "edit": { "type": "SelectVariable" } }
+        { "caption": "Name", "name": "Name", "width": "180px", "add": "Lampe", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Schalten", "name": "GA_Switch", "width": "110px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Schalten Status", "name": "GA_SwitchStat", "width": "130px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Helligkeit", "name": "GA_Dim", "width": "110px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Helligkeit Status", "name": "GA_DimStat", "width": "140px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Farbtemperatur", "name": "GA_Temp", "width": "130px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Farbtemp. Status", "name": "GA_TempStat", "width": "140px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Farbe", "name": "GA_Color", "width": "100px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "GA Farbe Status", "name": "GA_ColorStat", "width": "120px", "add": "", "edit": { "type": "ValidationTextBox" } },
+        { "caption": "oder Variable Schalten", "name": "SwitchID", "width": "170px", "add": 0, "edit": { "type": "SelectVariable" } },
+        { "caption": "Variable Helligkeit", "name": "DimID", "width": "160px", "add": 0, "edit": { "type": "SelectVariable" } },
+        { "caption": "Variable Farbtemperatur", "name": "TempID", "width": "170px", "add": 0, "edit": { "type": "SelectVariable" } },
+        { "caption": "Variable Farbe (HexColor)", "name": "ColorID", "width": "auto", "add": 0, "edit": { "type": "SelectVariable" } }
       ]
     }
   ]

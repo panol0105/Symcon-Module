@@ -1,8 +1,41 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../libs/KnxAuto.php';
+
 class KlimaKachel extends IPSModule
 {
+    use KnxAuto;
+
+    // Datenpunkte, die per Gruppenadresse angelegt werden können:
+    // Feld => [Name, KNX-DPT-Modul, Dimension (Unter-Typ), schreibend]
+    // Die Betriebsart hängt von der gewählten Codierung ab (siehe knxDef).
+    private const KNX = [
+        'PowerCtrlID'   => ['Ein/Aus', 1, 1, true],
+        'PowerStatID'   => ['Ein/Aus Status', 1, 1, false],
+        'ModeCtrlID'    => ['Betriebsart', 0, 0, true],
+        'ModeStatID'    => ['Betriebsart Status', 0, 0, false],
+        'SetCtrlID'     => ['Solltemperatur', 9, 1, true],
+        'SetStatID'     => ['Solltemperatur Status', 9, 1, false],
+        'ActID'         => ['Ist-Temperatur', 9, 1, false],
+        'KnxAmbCtrlID'  => ['Raumtemperatur an Gateway', 9, 1, true],
+        'FanCtrlID'     => ['Lüfterstufe', 5, 10, true],
+        'FanStatID'     => ['Lüfterstufe Status', 5, 10, false],
+        'VaneCtrlID'    => ['Lamellenposition', 5, 10, true],
+        'VaneStatID'    => ['Lamellenposition Status', 5, 10, false],
+        'SwingCtrlID'   => ['Swing', 1, 1, true],
+        'SwingStatID'   => ['Swing Status', 1, 1, false],
+        'CommErrID'     => ['Kommunikationsfehler', 1, 5, false],
+        'ErrCodeID'     => ['Störcode', 8, 1, false],
+        'ErrResetID'    => ['Störung zurücksetzen', 1, 15, true],
+        'FilterID'      => ['Filtermeldung', 1, 5, false],
+        'FilterResetID' => ['Filter zurücksetzen', 1, 15, true],
+        'CompID'        => ['Verdichter', 1, 1, false],
+        'ThermoID'      => ['Thermo Ein/Aus', 1, 1, false],
+        'LockID'        => ['Fernbedienungssperre', 1, 2, true],
+        'LockStatID'    => ['Fernbedienungssperre Status', 1, 2, false]
+    ];
+
     private const VARS = [
         'PowerCtrlID', 'PowerStatID', 'ModeCtrlID', 'ModeStatID',
         'SetCtrlID', 'SetStatID', 'ActID', 'ExtSensorID', 'KnxAmbCtrlID',
@@ -62,6 +95,11 @@ class KlimaKachel extends IPSModule
         }
         $this->RegisterPropertyBoolean('ShowLock', true);
         $this->RegisterPropertyString('Diagnostics', '[]');
+        foreach (array_keys(self::KNX) as $k) {
+            $this->RegisterPropertyString('GA_' . $k, '');
+        }
+        $this->RegisterPropertyInteger('KnxGateway', 0);
+        $this->RegisterAttributeString('KnxHash', '');
         $this->RegisterAttributeString('Timers', '[]');
         $this->RegisterTimer('Clock', 0, 'IPS_RequestAction($_IPS["TARGET"], "check", 0);');
         $this->SetVisualizationType(1);
@@ -75,7 +113,25 @@ class KlimaKachel extends IPSModule
                 $this->UnregisterMessage($id, $m);
             }
         }
-        $ids = array_map(fn ($p) => $this->ReadPropertyInteger($p), self::VARS);
+        // Beim Systemstart erst loslegen, wenn alle Module geladen sind
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            $this->RegisterMessage(0, IPS_KERNELSTARTED);
+            return;
+        }
+
+        // KNX-Instanzen aus Gruppenadressen anlegen / aktualisieren
+        $wanted = $this->knxWanted();
+        $gw = $this->ReadPropertyInteger('KnxGateway');
+        $hash = $this->knxHash($wanted, $gw);
+        if ($hash !== $this->ReadAttributeString('KnxHash')) {
+            $errors = $this->knxSync($wanted, $gw);
+            $this->WriteAttributeString('KnxHash', $errors ? '' : $hash);
+            $this->SetStatus($errors ? 201 : 102);
+        } else {
+            $this->SetStatus(102);
+        }
+
+        $ids = array_map(fn ($p) => $this->vid($p), self::VARS);
         foreach ($this->diag() as $d) {
             $ids[] = (int)($d['VariableID'] ?? 0);
         }
@@ -91,10 +147,14 @@ class KlimaKachel extends IPSModule
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
     {
+        if ($Message == IPS_KERNELSTARTED) {
+            $this->ApplyChanges();
+            return;
+        }
         if ($Message != VM_UPDATE) {
             return;
         }
-        if ($SenderID == $this->ReadPropertyInteger('ExtSensorID')) {
+        if ($SenderID == $this->vid('ExtSensorID')) {
             $this->forwardTemp(false);
         }
         $this->push();
@@ -119,7 +179,7 @@ class KlimaKachel extends IPSModule
     {
         $ids = [];
         foreach (self::VARS as $p) {
-            $id = $this->ReadPropertyInteger($p);
+            $id = $this->vid($p);
             if ($this->valid($id)) {
                 $ids[] = $id;
             }
@@ -139,7 +199,7 @@ class KlimaKachel extends IPSModule
         $ids = [];
         foreach (['PowerCtrlID', 'PowerStatID', 'ModeCtrlID', 'ModeStatID', 'SetCtrlID', 'SetStatID',
                   'FanCtrlID', 'FanStatID', 'VaneCtrlID', 'VaneStatID', 'SwingCtrlID', 'SwingStatID'] as $p) {
-            $id = $this->ReadPropertyInteger($p);
+            $id = $this->vid($p);
             if ($this->valid($id)) {
                 $ids[] = $id;
             }
@@ -197,6 +257,87 @@ class KlimaKachel extends IPSModule
         }
     }
 
+    // Formular: neben jede Variablen-Auswahl ein Feld für die Gruppenadresse
+    public function GetConfigurationForm()
+    {
+        $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        $add = function (array $items) use (&$add): array {
+            $out = [];
+            foreach ($items as $el) {
+                if (isset($el['items'])) {
+                    $el['items'] = $add($el['items']);
+                }
+                if (($el['type'] ?? '') === 'SelectVariable' && isset(self::KNX[$el['name']])) {
+                    $def = $this->knxDef($el['name']);
+                    $el['width'] = '420px';
+                    $out[] = ['type' => 'RowLayout', 'items' => [
+                        $el,
+                        ['type' => 'ValidationTextBox', 'name' => 'GA_' . $el['name'], 'caption' => 'oder Gruppenadresse',
+                         'width' => '170px', 'validate' => '^\s*$|^\s*\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{1,3}\s*$'],
+                        ['type' => 'Label', 'caption' => 'DPT ' . $def[1] . '.' . str_pad((string)$def[2], 3, '0', STR_PAD_LEFT)
+                            . ($def[3] ? '' : ', nur lesen')]
+                    ]];
+                    continue;
+                }
+                $out[] = $el;
+            }
+            return $out;
+        };
+        $form['elements'] = $add($form['elements']);
+        array_splice($form['elements'], 1, 0, [[
+            'type' => 'ExpansionPanel', 'caption' => 'KNX-Gruppenadressen', 'expanded' => true,
+            'items' => $this->knxGatewayElements()
+        ]]);
+        return json_encode($form);
+    }
+
+    // ---------- KNX-Gruppenadressen ----------
+
+    // Definition eines Datenpunkts inkl. Betriebsart je nach Codierung
+    private function knxDef(string $key): array
+    {
+        $d = self::KNX[$key];
+        if ($key === 'ModeCtrlID' || $key === 'ModeStatID') {
+            if ($this->ReadPropertyString('ModeCoding') === '20105') {
+                [$d[1], $d[2]] = [20, 105];
+            } else {
+                [$d[1], $d[2]] = [5, 10];
+            }
+        }
+        return $d;
+    }
+
+    private function knxWanted(): array
+    {
+        $title = trim($this->ReadPropertyString('Title'));
+        $wanted = [];
+        foreach (array_keys(self::KNX) as $key) {
+            $ga = trim($this->ReadPropertyString('GA_' . $key));
+            if ($ga === '') {
+                continue;
+            }
+            $d = $this->knxDef($key);
+            $wanted['KNX_' . $key] = [
+                'ga'    => $ga,
+                'dpt'   => $d[1],
+                'dim'   => $d[2],
+                'write' => $d[3],
+                'name'  => ($title !== '' ? $title . ' ' : '') . $d[0]
+            ];
+        }
+        return $wanted;
+    }
+
+    // Variable eines Felds: ausgewählte Variable, sonst die aus der Gruppenadresse angelegte
+    private function vid(string $prop): int
+    {
+        $id = $this->ReadPropertyInteger($prop);
+        if ($this->valid($id)) {
+            return $id;
+        }
+        return isset(self::KNX[$prop]) ? $this->knxVar('KNX_' . $prop) : 0;
+    }
+
     // ---------- Hilfsfunktionen ----------
 
     private function valid(int $id): bool
@@ -206,16 +347,16 @@ class KlimaKachel extends IPSModule
 
     private function has(string $a, string $b = ''): bool
     {
-        return $this->valid($this->ReadPropertyInteger($a))
-            || ($b !== '' && $this->valid($this->ReadPropertyInteger($b)));
+        return $this->valid($this->vid($a))
+            || ($b !== '' && $this->valid($this->vid($b)));
     }
 
     // Liest zuerst $a, sonst $b
     private function read(string $a, string $b = '')
     {
         foreach ([$a, $b] as $p) {
-            if ($p !== '' && $this->valid($this->ReadPropertyInteger($p))) {
-                return GetValue($this->ReadPropertyInteger($p));
+            if ($p !== '' && $this->valid($this->vid($p))) {
+                return GetValue($this->vid($p));
             }
         }
         return null;
@@ -224,9 +365,9 @@ class KlimaKachel extends IPSModule
     // Schreibt auf $ctrl, sonst auf $stat
     private function write(string $ctrl, string $stat, $value): void
     {
-        $id = $this->ReadPropertyInteger($ctrl);
+        $id = $this->vid($ctrl);
         if (!$this->valid($id) && $stat !== '') {
-            $id = $this->ReadPropertyInteger($stat);
+            $id = $this->vid($stat);
         }
         if (!$this->valid($id)) {
             return;
@@ -270,7 +411,7 @@ class KlimaKachel extends IPSModule
 
     private function forwardTemp(bool $force): void
     {
-        $src = $this->ReadPropertyInteger('ExtSensorID');
+        $src = $this->vid('ExtSensorID');
         if (!$this->valid($src) || !$this->has('KnxAmbCtrlID')) {
             return;
         }

@@ -12,6 +12,20 @@ Module für IP-Symcon ab Version 7 (getestet für 9.x), Kachel-Visualisierung.
 2. In der Symcon-Konsole: Kern-Instanzen → Modules → Hinzufügen → Repository-Adresse eintragen.
 3. Instanzen anlegen, Variablen zuordnen und in der Kachel-Visualisierung hinzufügen.
 
+## KNX-Gruppenadressen direkt eintragen
+
+In der **KlimaKachel** steht neben jeder Variablen-Auswahl ein Feld „oder Gruppenadresse“, in der **LampenListe** gibt es pro Lampe Spalten für die Gruppenadressen (jeweils mit eigener Status-Adresse).
+
+Beim Klick auf „Übernehmen“ legt das Modul für jede eingetragene Adresse eine passende KNX-Instanz unterhalb der Modul-Instanz an:
+
+- Datentyp passend zum Datenpunkt (z. B. Solltemperatur DPT 9.001, Lüfterstufe DPT 5.010, Betriebsart je nach Codierung DPT 20.105 oder 5.010, Helligkeit DPT 5.001, Farbtemperatur DPT 7.600, Farbe DPT 232.600)
+- Instanz und Variable bekommen den Namen „<Name in der Kachel> <Datenpunkt>“, z. B. „Wohnzimmer Fenster Solltemperatur Status“
+- Status-Adressen werden nur lesend angelegt, Steuer-Adressen schreibend
+- wird eine Adresse geändert, passt das Modul die bestehende Instanz an; wird sie gelöscht, entfernt es die Instanz
+- unter „KNX-Gruppenadressen“ kann das KNX-Gateway gewählt werden; ohne Auswahl verbindet Symcon automatisch
+
+Format: dreistufig Haupt/Mittel/Unter, z. B. 3/1/20. Eine ausgewählte Variable hat Vorrang vor der Gruppenadresse. Bei ungültigen Adressen zeigt die Instanz einen Fehlerstatus, Details stehen im Meldungen-Fenster.
+
 ## Räume mit mehreren Klimageräten
 
 1. Für jedes Innengerät eine **KlimaKachel**-Instanz anlegen und die KNX-Variablen zuordnen. Diese Instanzen nicht in die Visualisierung aufnehmen.
