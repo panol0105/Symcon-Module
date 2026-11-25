@@ -1,11 +1,14 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../libs/TileFont.php';
+
 require_once __DIR__ . '/../libs/KnxAuto.php';
 
 class LampenListe extends IPSModule
 {
     use KnxAuto;
+    use TileFont;
 
     // Funktion => [Variablen-Spalte, Name, KNX-DPT-Modul, Dimension]
     private const FUNCS = [
@@ -87,7 +90,7 @@ class LampenListe extends IPSModule
     public function GetVisualizationTile()
     {
         $html = file_get_contents(__DIR__ . '/module.html');
-        return $html . '<script>handleMessage(' . json_encode($this->buildState()) . ');</script>';
+        return $this->tileFontCss() . $html . '<script>handleMessage(' . json_encode($this->buildState()) . ');</script>';
     }
 
     // Ident-Format: "typ_index", z. B. "dim_2"

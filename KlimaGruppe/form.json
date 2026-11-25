@@ -1,6 +1,5 @@
 {
   "elements": [
-    { "type": "ValidationTextBox", "name": "Title", "caption": "Name in der Kachel" },
     { "type": "Label", "caption": "Klimageräte dieses Raums. Das erste Gerät ist das Hauptgerät: Beim Angleichen übernehmen alle anderen seine Einstellungen." },
     {
       "type": "List", "name": "Units", "caption": "Klimageräte",

@@ -5,10 +5,7 @@
   body { margin:0; font-family: Poppins, 'Segoe UI', system-ui, sans-serif; color:var(--txt); }
   button, input, select { font-family:inherit; }
   .wrap { display:flex; flex-direction:column; align-items:center; gap:10px; height:100%; box-sizing:border-box; padding:var(--head) 16px 14px; overflow-y:auto; }
-  .top { width:100%; display:flex; align-items:center; gap:6px; }
-  .title:empty { display:none; }
-  .top .btn:first-of-type { margin-left:auto; }
-  .title { order:-1; flex:1; text-align:left; font-size:18px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .top { width:100%; display:flex; align-items:center; justify-content:flex-end; gap:6px; }
   .btn { border:none; border-radius:50%; width:36px; height:36px; background:var(--cell); color:var(--txt); font-size:16px; cursor:pointer; flex:none; }
   .pw.on { background:var(--mc); color:#fff; }
   .lk.locked { background:var(--errbg); color:var(--err); }
@@ -60,7 +57,6 @@
   <div class="top">
     <button class="btn" id="tbtn" title="Zeitschaltuhr">⏱</button>
     <button class="btn" id="ibtn" title="Status">ⓘ</button>
-    <div class="title" id="title"></div>
     <button class="btn lk" id="lk" title="Fernbedienung">🔓</button>
     <button class="btn pw" id="pw" title="Ein/Aus">⏻</button>
   </div>
@@ -139,7 +135,6 @@
   function render() {
     const m = MODES[s.mode];
     document.documentElement.style.setProperty('--mc', m ? m[2] : '#2563eb');
-    $('title').textContent = s.title || '';
     $('pw').classList.toggle('on', !!s.power);
     const lk = $('lk');
     lk.style.display = s.has.lock ? '' : 'none';
@@ -154,17 +149,18 @@
 
     seg('modes', s.has.mode,
       (s.modeList || ['heat', 'cool', 'fan']).map(k => ({ v: k, h: `<span class="ico">${MODES[k][0]}</span>${MODES[k][1]}`, a: s.mode === k })),
-      v => requestAction('mode', v));
+      v => { s.mode = v; render(); requestAction('mode', v); });
 
     seg('fans', s.has.fan,
       FANS.map((t, i) => ({ v: i, h: t, a: s.fan === i })),
-      v => requestAction('fan', v));
+      v => { s.fan = v; render(); requestAction('fan', v); });
 
     const vanes = s.has.vane ? [1,2,3,4].map(i => ({ v: i, h: 'Pos ' + i, a: !s.swing && s.vane === i })) : [];
     if (s.has.swing) vanes.push({ v: 'swing', h: 'Swing', a: !!s.swing });
     seg('vanes', vanes.length > 0, vanes, v => {
-      if (v === 'swing') { requestAction('swing', !s.swing); return; }
+      if (v === 'swing') { s.swing = !s.swing; render(); requestAction('swing', s.swing); return; }
       if (s.swing && s.has.swing) requestAction('swing', false);
+      s.swing = false; s.vane = v; render();
       requestAction('vane', v);
     });
   }

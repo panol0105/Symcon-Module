@@ -1,11 +1,14 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../libs/TileFont.php';
+
 require_once __DIR__ . '/../libs/KnxAuto.php';
 
 class KlimaKachel extends IPSModule
 {
     use KnxAuto;
+    use TileFont;
 
     // Datenpunkte, die per Gruppenadresse angelegt werden können:
     // Feld => [Name, KNX-DPT-Modul, Dimension (Unter-Typ), schreibend]
@@ -85,7 +88,7 @@ class KlimaKachel extends IPSModule
     public function Create()
     {
         parent::Create();
-        $this->RegisterPropertyString('Title', 'Klima');
+        $this->RegisterPropertyString('Title', '');
         $this->RegisterPropertyString('ModeCoding', '20105');
         $this->RegisterPropertyFloat('MinTemp', 16);
         $this->RegisterPropertyFloat('MaxTemp', 30);
@@ -165,7 +168,7 @@ class KlimaKachel extends IPSModule
     public function GetVisualizationTile()
     {
         $html = file_get_contents(__DIR__ . '/module.html');
-        return $html . '<script>handleMessage(' . json_encode($this->buildState()) . ');</script>';
+        return $this->tileFontCss() . $html . '<script>handleMessage(' . json_encode($this->buildState()) . ');</script>';
     }
 
     // ---------- Schnittstelle für das Modul KlimaGruppe ----------
@@ -226,10 +229,14 @@ class KlimaKachel extends IPSModule
                 }
                 break;
             case 'fan':
-                $this->write('FanCtrlID', 'FanStatID', max(0, min(3, (int)$Value)));
+                // Stufe 0..3; bei Prozent-Objekt (DPT 5.001) 25/50/75/100 %
+                $i = max(0, min(3, (int)$Value));
+                $this->write('FanCtrlID', 'FanStatID', $this->isPercent($this->target('FanCtrlID', 'FanStatID')) ? ($i + 1) * 25 : $i);
                 break;
             case 'vane':
-                $this->write('VaneCtrlID', 'VaneStatID', max(1, min(4, (int)$Value)));
+                // Position 1..4; bei Prozent-Objekt 25/50/75/100 %
+                $i = max(1, min(4, (int)$Value));
+                $this->write('VaneCtrlID', 'VaneStatID', $this->isPercent($this->target('VaneCtrlID', 'VaneStatID')) ? $i * 25 : $i);
                 break;
             case 'swing':
                 $this->write('SwingCtrlID', 'SwingStatID', (bool)$Value);
@@ -312,6 +319,9 @@ class KlimaKachel extends IPSModule
     private function knxWanted(): array
     {
         $title = trim($this->ReadPropertyString('Title'));
+        if ($title === '') {
+            $title = IPS_GetName($this->InstanceID);
+        }
         $wanted = [];
         foreach (array_keys(self::KNX) as $key) {
             $ga = trim($this->ReadPropertyString('GA_' . $key));
@@ -364,6 +374,28 @@ class KlimaKachel extends IPSModule
         return null;
     }
 
+    // Variable, die gelesen bzw. beschrieben wird ($a, sonst $b)
+    private function target(string $a, string $b): int
+    {
+        $id = $this->vid($a);
+        return $this->valid($id) ? $id : $this->vid($b);
+    }
+
+    // true, wenn die Variable Prozentwerte führt (z. B. DPT 5.001 „scaling“)
+    private function isPercent(int $id): bool
+    {
+        if (!$this->valid($id)) {
+            return false;
+        }
+        $v = IPS_GetVariable($id);
+        $p = $v['VariableCustomProfile'] ?: $v['VariableProfile'];
+        if ($p !== '' && IPS_VariableProfileExists($p)) {
+            $pr = IPS_GetVariableProfile($p);
+            return (float)$pr['MaxValue'] === 100.0 || strpos((string)$pr['Suffix'], '%') !== false;
+        }
+        return $v['VariableType'] === 2;   // Kommazahl ohne Profil: Prozent
+    }
+
     // Schreibt auf $ctrl, sonst auf $stat
     private function write(string $ctrl, string $stat, $value): void
     {
@@ -383,6 +415,12 @@ class KlimaKachel extends IPSModule
         if (!$this->knxCanSend($id)) {
             return;
         }
+        $v = IPS_GetVariable($id);
+        if (empty($v['VariableAction']) && empty($v['VariableCustomAction'])) {
+            $this->LogMessage('„' . IPS_GetName($id) . '“ (#' . $id . ') hat keine Aktion und kann nicht geschaltet werden. Bitte die Steuer-Variable bzw. -Gruppenadresse (schreibend) zuordnen.', KL_WARNING);
+            return;
+        }
+        $this->SendDebug('Senden', $ctrl . ' -> #' . $id . ' = ' . json_encode($value), 0);
         RequestAction($id, $value);
     }
 
@@ -488,7 +526,13 @@ class KlimaKachel extends IPSModule
         }
         $err = $this->has('ErrCodeID') ? (int)$this->read('ErrCodeID') : null;
         $fan = $this->read('FanStatID', 'FanCtrlID');
+        if ($fan !== null && $this->isPercent($this->target('FanStatID', 'FanCtrlID'))) {
+            $fan = max(0, min(3, (int)ceil((float)$fan / 25) - 1));
+        }
         $vane = $this->read('VaneStatID', 'VaneCtrlID');
+        if ($vane !== null && $this->isPercent($this->target('VaneStatID', 'VaneCtrlID'))) {
+            $vane = max(1, min(4, (int)ceil((float)$vane / 25)));
+        }
         $swing = $this->read('SwingStatID', 'SwingCtrlID');
 
         $diag = [];

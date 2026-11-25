@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../libs/TileFont.php';
+
 /**
  * KlimaGruppe: fasst mehrere KlimaKachel-Instanzen (Innengeräte eines Raums)
  * zu einem Gerät zusammen, steuert sie parallel und wertet ihre
@@ -8,6 +10,8 @@ declare(strict_types=1);
  */
 class KlimaGruppe extends IPSModule
 {
+    use TileFont;
+
     private const KK_GUID = '{B3F6A912-4D7E-4C58-9A21-6E0D8C3F5B74}';
     private const FORWARD = ['power', 'setpoint', 'mode', 'fan', 'vane', 'swing', 'filterReset', 'errReset'];
     private const OWN_WINDOW = 20;   // Sekunden: Rückmeldungen nach eigenem Befehl gelten nicht als Fremdbedienung
@@ -55,7 +59,7 @@ class KlimaGruppe extends IPSModule
     public function GetVisualizationTile()
     {
         $html = file_get_contents(__DIR__ . '/module.html');
-        return $html . '<script>handleMessage(' . json_encode($this->buildState()) . ');</script>';
+        return $this->tileFontCss() . $html . '<script>handleMessage(' . json_encode($this->buildState()) . ');</script>';
     }
 
     // Zustand als JSON (KG_GetState), z. B. für eigene Skripte

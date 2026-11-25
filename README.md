@@ -6,6 +6,10 @@ Module für IP-Symcon ab Version 7 (getestet für 9.x), Kachel-Visualisierung.
 - **KlimaKachel**: ein Klima-Innengerät über das Intesis/HMS-Gateway IN776-MHI per KNX (runder Temperatur-Slider, Betriebsart, Lüfter, Lamellen, Meldungen, Fernbedienungssperre, Zeitschaltuhr)
 - **KlimaGruppe**: mehrere KlimaKachel-Instanzen eines Raums als ein Gerät, parallel gesteuert, mit gemeinsamer Auswertung der Rückmeldungen
 
+## Schrift
+
+Die Kacheln nutzen die Schrift Poppins aus dem lokalen Ordner `libs/fonts` (eingebettet, keine Internetverbindung nötig). Poppins steht unter der SIL Open Font License, siehe `libs/fonts/OFL-Poppins.txt`.
+
 ## Installation
 
 1. Diesen Ordner als öffentliches GitHub-Repository hochladen (library.json liegt ganz oben).

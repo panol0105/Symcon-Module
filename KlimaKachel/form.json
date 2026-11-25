@@ -5,7 +5,7 @@
     { "code": 202, "icon": "error", "caption": "KNX-Instanzen sind mit keinem KNX-Gateway verbunden. Bitte Gateway unter „KNX-Gruppenadressen“ auswählen." }
   ],
   "elements": [
-    { "type": "ValidationTextBox", "name": "Title", "caption": "Name in der Kachel" },
+    { "type": "ValidationTextBox", "name": "Title", "caption": "Präfix für KNX-Variablen (leer = Instanzname)" },
     {
       "type": "Select", "name": "ModeCoding", "caption": "Codierung Betriebsart",
       "options": [
