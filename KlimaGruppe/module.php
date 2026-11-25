@@ -130,7 +130,6 @@ class KlimaGruppe extends IPSModule
     private function chartData(int $hours): array
     {
         $out = ['hours' => $hours, 'from' => time() - $hours * 3600, 'to' => time(), 'archive' => false, 'series' => []];
-        $soll = null;
         foreach ($this->units() as $i => $u) {
             try {
                 $d = json_decode(KK_GetChartData($u['id'], $hours), true);
@@ -138,17 +137,16 @@ class KlimaGruppe extends IPSModule
                 continue;
             }
             $out['archive'] = $out['archive'] || $d['archive'];
-            [$from, $to] = [$d['from'], $d['to']];
-            $out['from'] = $from;
-            $out['to'] = $to;
-            $out['series'][] = ['name' => $u['name'], 'color' => self::COLORS[$i % count(self::COLORS)], 'points' => $d['series'][0]['points']];
-            if ($soll === null) {
-                $soll = $d['series'][1];
-                $soll['name'] = 'Soll (' . $u['name'] . ')';
+            $out['from'] = $d['from'];
+            $out['to'] = $d['to'];
+            $color = self::COLORS[$i % count(self::COLORS)];
+            foreach ($d['series'] as $sr) {
+                $sr['name'] = $u['name'] . ' · ' . $sr['name'];
+                $sr['color'] = $color;
+                $sr['dash'] = ($sr['kind'] ?? '') === 'soll';
+                $sr['dot'] = ($sr['kind'] ?? '') === 'extra';
+                $out['series'][] = $sr;
             }
-        }
-        if ($soll !== null) {
-            $out['series'][] = $soll;
         }
         return $out;
     }

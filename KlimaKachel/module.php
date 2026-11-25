@@ -122,6 +122,9 @@ class KlimaKachel extends IPSModule
                 $this->UnregisterMessage($id, $m);
             }
         }
+        if (is_dir(__DIR__ . '/../KlimaRaum')) {
+            $this->LogMessage('Im Modul-Repository liegt noch der alte Ordner „KlimaRaum“. Er hat dieselbe Kennung wie „KlimaGruppe“ und muss gelöscht werden, sonst lädt Symcon die alte Gruppen-Kachel.', KL_WARNING);
+        }
         // Beim Systemstart erst loslegen, wenn alle Module geladen sind
         if (IPS_GetKernelRunlevel() !== KR_READY) {
             $this->RegisterMessage(0, IPS_KERNELSTARTED);
@@ -454,6 +457,36 @@ class KlimaKachel extends IPSModule
         return 0;
     }
 
+    // Alle Temperaturen des Geräts: [Art, Name, Variable]
+    private function temperatures(): array
+    {
+        $list = [
+            ['ist', 'Ist', $this->target('ActID', 'ActID')],
+            ['soll', 'Soll', $this->target('SetStatID', 'SetCtrlID')]
+        ];
+        if ($this->valid($this->vid('ExtSensorID'))) {
+            $list[] = ['extra', 'Raumfühler', $this->vid('ExtSensorID')];
+        }
+        // Diagnosewerte mit Temperatur-Profil (°C), z. B. Wärmetauscher, Außengerät
+        foreach ($this->diag() as $d) {
+            $id = (int)($d['VariableID'] ?? 0);
+            if ($this->valid($id) && $this->isTemperature($id)) {
+                $list[] = ['extra', (string)$d['Name'], $id];
+            }
+        }
+        return array_values(array_filter($list, fn ($t) => $this->valid($t[2])));
+    }
+
+    private function isTemperature(int $id): bool
+    {
+        $v = IPS_GetVariable($id);
+        $p = $v['VariableCustomProfile'] ?: $v['VariableProfile'];
+        if ($p === '' || !IPS_VariableProfileExists($p)) {
+            return false;
+        }
+        return strpos((string)IPS_GetVariableProfile($p)['Suffix'], '°') !== false || stripos($p, 'Temperature') !== false;
+    }
+
     private function enableLogging(): void
     {
         $ac = $this->archiveID();
@@ -461,7 +494,7 @@ class KlimaKachel extends IPSModule
             return;
         }
         $changed = false;
-        foreach ([$this->target('ActID', 'ActID'), $this->target('SetStatID', 'SetCtrlID')] as $id) {
+        foreach (array_column($this->temperatures(), 2) as $id) {
             if ($this->valid($id) && !AC_GetLoggingStatus($ac, $id)) {
                 AC_SetLoggingStatus($ac, $id, true);
                 $changed = true;
@@ -511,17 +544,21 @@ class KlimaKachel extends IPSModule
         $to = time();
         $from = $to - $hours * 3600;
         $ac = $this->archiveID();
-        return json_encode([
-            'hours'   => $hours,
-            'from'    => $from,
-            'to'      => $to,
-            'archive' => $ac > 0,
-            'series'  => [
-                ['name' => 'Ist', 'color' => '#2563eb', 'points' => $this->series($ac, $this->target('ActID', 'ActID'), $from, $to, $hours)],
-                ['name' => 'Soll', 'color' => '#e5534b', 'dash' => true, 'step' => $hours <= 48,
-                 'points' => $this->series($ac, $this->target('SetStatID', 'SetCtrlID'), $from, $to, $hours)]
-            ]
-        ]);
+        $colors = ['ist' => '#2563eb', 'soll' => '#e5534b'];
+        $extra = ['#0f9f8a', '#7c3aed', '#d97706', '#db2777', '#0891b2', '#65a30d'];
+        $series = [];
+        $n = 0;
+        foreach ($this->temperatures() as [$kind, $name, $id]) {
+            $series[] = [
+                'name'   => $name,
+                'kind'   => $kind,
+                'color'  => $colors[$kind] ?? $extra[$n++ % count($extra)],
+                'dash'   => $kind === 'soll',
+                'step'   => $kind === 'soll' && $hours <= 48,
+                'points' => $this->series($ac, $id, $from, $to, $hours)
+            ];
+        }
+        return json_encode(['hours' => $hours, 'from' => $from, 'to' => $to, 'archive' => $ac > 0, 'series' => $series]);
     }
 
     // Aktuelle Werte der Status-Objekte vom Gateway abfragen (KK_RequestStatus)

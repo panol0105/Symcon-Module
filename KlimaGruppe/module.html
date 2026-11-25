@@ -73,6 +73,8 @@
   .gl { stroke:var(--line); stroke-width:1; }
   .ax { fill:var(--sub); font-size:12px; font-family:inherit; }
   .clegend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--sub); margin-top:6px; }
+  .clegend .li { cursor:pointer; user-select:none; }
+  .clegend .li.off { opacity:.35; text-decoration:line-through; }
   .clegend i { display:inline-block; width:16px; height:3px; border-radius:2px; margin-right:6px; vertical-align:middle; }
 </style>
 
@@ -451,14 +453,19 @@
     requestAction('chart', h);
   }
 
+  let lastChart = null;
+  const hidden = new Set();
+
   function drawChart(c) {
+    lastChart = c;
     const body = $('cbody'), leg = $('clegend');
     if (!c.archive) { body.textContent = 'Kein Archiv in Symcon gefunden.'; return; }
-    const series = (c.series || []).filter(x => x.points && x.points.length);
-    if (!series.length) { body.textContent = 'Noch keine aufgezeichneten Werte. Die Aufzeichnung läuft, der Verlauf füllt sich ab jetzt.'; return; }
+    const all = (c.series || []).filter(x => x.points && x.points.length);
+    const series = all.filter(x => !hidden.has(x.name));
+    if (!all.length) { body.textContent = 'Noch keine aufgezeichneten Werte. Die Aufzeichnung läuft, der Verlauf füllt sich ab jetzt.'; return; }
     const W = 400, H = 230, L = 34, R = 8, T = 10, B = 26;
     let lo = Infinity, hi = -Infinity;
-    series.forEach(sr => sr.points.forEach(p => { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); }));
+    (series.length ? series : all).forEach(sr => sr.points.forEach(p => { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); }));
     lo = Math.floor(lo - 0.5); hi = Math.ceil(hi + 0.5);
     if (hi - lo < 4) { const m = (hi + lo) / 2; lo = Math.floor(m - 2); hi = Math.ceil(m + 2); }
     const x = t => L + (t - c.from) / (c.to - c.from) * (W - L - R);
@@ -482,9 +489,15 @@
         const X = x(Math.max(c.from, p[0])).toFixed(1), Y = y(p[1]).toFixed(1);
         d += i === 0 ? `M${X} ${Y}` : (sr.step ? `H${X}V${Y}` : `L${X} ${Y}`);
       });
-      g += `<path d="${d}" fill="none" stroke="${sr.color}" stroke-width="2" stroke-linejoin="round" ${sr.dash ? 'stroke-dasharray="5 4"' : ''}/>`;
+      g += `<path d="${d}" fill="none" stroke="${sr.color}" stroke-width="2" stroke-linejoin="round" ${sr.dash ? 'stroke-dasharray="5 4"' : (sr.dot ? 'stroke-dasharray="1.5 4" stroke-linecap="round"' : '')}/>`;
     });
     body.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
-    leg.innerHTML = series.map(sr => `<span><i style="background:${sr.color}"></i>${esc(sr.name)}</span>`).join('');
+    leg.innerHTML = all.map((sr, i) => `<span class="li ${hidden.has(sr.name) ? 'off' : ''}" data-i="${i}">`
+      + `<i style="background:${sr.dash || sr.dot ? 'repeating-linear-gradient(90deg,' + sr.color + ' 0 4px,transparent 4px 7px)' : sr.color}"></i>${esc(sr.name)}</span>`).join('');
+    leg.querySelectorAll('.li').forEach(el => el.onclick = () => {
+      const n = all[Number(el.dataset.i)].name;
+      hidden.has(n) ? hidden.delete(n) : hidden.add(n);
+      drawChart(lastChart);
+    });
   }
 </script>
