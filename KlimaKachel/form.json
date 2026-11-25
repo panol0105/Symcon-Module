@@ -40,6 +40,7 @@
         { "type": "SelectVariable", "name": "SetCtrlID", "caption": "Solltemperatur Steuern" },
         { "type": "SelectVariable", "name": "SetStatID", "caption": "Solltemperatur Status" },
         { "type": "SelectVariable", "name": "ActID", "caption": "Ist-Temperatur (AC ambient)" },
+        { "type": "CheckBox", "name": "ChartLogging", "caption": "Ist- und Solltemperatur für das Diagramm im Archiv aufzeichnen" },
         { "type": "SelectVariable", "name": "ExtSensorID", "caption": "Eigener Raumfühler (Quelle, optional)" },
         { "type": "SelectVariable", "name": "KnxAmbCtrlID", "caption": "KNX ambient temperature am Gateway (Ziel)" }
       ]

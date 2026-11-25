@@ -101,6 +101,7 @@ class KlimaKachel extends IPSModule
         $this->RegisterPropertyString('FanFormat', 'pct');    // pct = Prozent (scaling, DPT 5.001), enum = Stufe (DPT 5.010)
         $this->RegisterPropertyString('VaneFormat', 'pct');
         $this->RegisterAttributeString('LockState', '');
+        $this->RegisterPropertyBoolean('ChartLogging', true);   // Ist/Soll im Archiv aufzeichnen
         $this->RegisterPropertyBoolean('ShowDry', false);
         $this->RegisterPropertyString('Diagnostics', '[]');
         foreach (array_keys(self::KNX) as $k) {
@@ -140,6 +141,10 @@ class KlimaKachel extends IPSModule
         }
         // aktuelle Werte der Status-Objekte vom Bus holen
         $this->RequestStatus();
+        // Aufzeichnung für das Diagramm einschalten
+        if ($this->ReadPropertyBoolean('ChartLogging')) {
+            $this->enableLogging();
+        }
 
         $ids = array_map(fn ($p) => $this->vid($p), self::VARS);
         foreach ($this->diag() as $d) {
@@ -258,6 +263,10 @@ class KlimaKachel extends IPSModule
                     $this->WriteAttributeString('LockState', $Value ? '1' : '0');
                     $this->push();
                 }
+                break;
+            case 'chart':
+                // Daten für das Diagramm an die Kachel schicken
+                $this->UpdateVisualizationValue(json_encode(['chart' => json_decode($this->GetChartData((int)$Value), true)]));
                 break;
             case 'timers':
                 $t = json_decode((string)$Value, true);
@@ -430,6 +439,89 @@ class KlimaKachel extends IPSModule
         }
         $a = $this->ReadAttributeString('LockState');
         return $a === '' ? (bool)$this->read('LockID') : $a === '1';
+    }
+
+    // ---------- Diagramm ----------
+
+    private function archiveID(): int
+    {
+        foreach (IPS_GetModuleList() as $guid) {
+            if (IPS_GetModule($guid)['ModuleName'] === 'Archive Control') {
+                $list = IPS_GetInstanceListByModuleID($guid);
+                return $list ? (int)$list[0] : 0;
+            }
+        }
+        return 0;
+    }
+
+    private function enableLogging(): void
+    {
+        $ac = $this->archiveID();
+        if ($ac === 0) {
+            return;
+        }
+        $changed = false;
+        foreach ([$this->target('ActID', 'ActID'), $this->target('SetStatID', 'SetCtrlID')] as $id) {
+            if ($this->valid($id) && !AC_GetLoggingStatus($ac, $id)) {
+                AC_SetLoggingStatus($ac, $id, true);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            IPS_ApplyChanges($ac);
+        }
+    }
+
+    // Werte einer Variablen im Zeitraum, aufsteigend als [[Zeit, Wert], ...]
+    private function series(int $ac, int $id, int $from, int $to, int $hours): array
+    {
+        if ($ac === 0 || !$this->valid($id) || !AC_GetLoggingStatus($ac, $id)) {
+            return [];
+        }
+        $pts = [];
+        if ($hours <= 48) {
+            // Rohwerte; dazu der letzte Wert vor Beginn, damit die Linie links anfängt
+            $before = AC_GetLoggedValues($ac, $id, 0, $from, 1);
+            if ($before) {
+                $pts[] = [$from, round((float)$before[0]['Value'], 2)];
+            }
+            foreach (array_reverse(AC_GetLoggedValues($ac, $id, $from, $to, 0)) as $r) {
+                $pts[] = [(int)$r['TimeStamp'], round((float)$r['Value'], 2)];
+            }
+            if ($pts) {
+                $pts[] = [$to, end($pts)[1]];   // bis jetzt fortführen
+            }
+        } else {
+            foreach (array_reverse(AC_GetAggregatedValues($ac, $id, 0 /* stündlich */, $from, $to, 0)) as $r) {
+                $pts[] = [(int)$r['TimeStamp'], round((float)$r['Avg'], 2)];
+            }
+        }
+        // auf höchstens 600 Punkte ausdünnen
+        if (count($pts) > 600) {
+            $step = (int)ceil(count($pts) / 600);
+            $pts = array_values(array_filter($pts, fn ($k) => $k % $step === 0, ARRAY_FILTER_USE_KEY));
+        }
+        return $pts;
+    }
+
+    // Verlauf für das Diagramm (KK_GetChartData), Zeitraum in Stunden
+    public function GetChartData(int $hours): string
+    {
+        $hours = max(1, min(24 * 31, $hours));
+        $to = time();
+        $from = $to - $hours * 3600;
+        $ac = $this->archiveID();
+        return json_encode([
+            'hours'   => $hours,
+            'from'    => $from,
+            'to'      => $to,
+            'archive' => $ac > 0,
+            'series'  => [
+                ['name' => 'Ist', 'color' => '#2563eb', 'points' => $this->series($ac, $this->target('ActID', 'ActID'), $from, $to, $hours)],
+                ['name' => 'Soll', 'color' => '#e5534b', 'dash' => true, 'step' => $hours <= 48,
+                 'points' => $this->series($ac, $this->target('SetStatID', 'SetCtrlID'), $from, $to, $hours)]
+            ]
+        ]);
     }
 
     // Aktuelle Werte der Status-Objekte vom Gateway abfragen (KK_RequestStatus)

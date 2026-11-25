@@ -101,6 +101,9 @@ class KlimaGruppe extends IPSModule
                 $this->SetTimerInterval('AutoSync', 0);
                 $this->syncUnits((int)$this->GetBuffer('RefUnit'));
                 break;
+            case 'chart':
+                $this->UpdateVisualizationValue(json_encode(['chart' => $this->chartData((int)$Value)]));
+                break;
             case 'timers':
                 $t = json_decode((string)$Value, true);
                 if (is_array($t)) {
@@ -118,6 +121,36 @@ class KlimaGruppe extends IPSModule
                 }
                 $this->forward($Ident, $Value);
         }
+    }
+
+    // ---------- Diagramm ----------
+
+    private const COLORS = ['#2563eb', '#0f9f8a', '#7c3aed', '#db2777', '#0891b2', '#65a30d'];
+
+    private function chartData(int $hours): array
+    {
+        $out = ['hours' => $hours, 'from' => time() - $hours * 3600, 'to' => time(), 'archive' => false, 'series' => []];
+        $soll = null;
+        foreach ($this->units() as $i => $u) {
+            try {
+                $d = json_decode(KK_GetChartData($u['id'], $hours), true);
+            } catch (Throwable $e) {
+                continue;
+            }
+            $out['archive'] = $out['archive'] || $d['archive'];
+            [$from, $to] = [$d['from'], $d['to']];
+            $out['from'] = $from;
+            $out['to'] = $to;
+            $out['series'][] = ['name' => $u['name'], 'color' => self::COLORS[$i % count(self::COLORS)], 'points' => $d['series'][0]['points']];
+            if ($soll === null) {
+                $soll = $d['series'][1];
+                $soll['name'] = 'Soll (' . $u['name'] . ')';
+            }
+        }
+        if ($soll !== null) {
+            $out['series'][] = $soll;
+        }
+        return $out;
     }
 
     // ---------- Geräte ----------
