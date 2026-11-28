@@ -8,7 +8,7 @@ declare(strict_types=1);
  */
 trait TileFont
 {
-    private function tileFontCss(): string
+    protected function tileFontCss(): string
     {
         static $css = null;
         if ($css !== null) {

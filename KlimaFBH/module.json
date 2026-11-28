@@ -1,0 +1,11 @@
+{
+  "id": "{6A3D1F8E-2C47-4B95-8E60-3F9B7C2A5D14}",
+  "name": "KlimaFBH",
+  "type": 3,
+  "vendor": "",
+  "aliases": [],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "KFB"
+}

@@ -79,6 +79,22 @@
   .clegend .li { cursor:pointer; user-select:none; }
   .clegend .li.off { opacity:.35; text-decoration:line-through; }
   .clegend i { display:inline-block; width:16px; height:3px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+  .fbh { width:100%; background:var(--cell); border-radius:14px; padding:12px; box-sizing:border-box; display:none; }
+  .fbh.show { display:block; }
+  .fh { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .ft { font-weight:500; font-size:15px; display:flex; align-items:center; gap:6px; }
+  .ft svg { width:18px; height:18px; fill:none; stroke:#e5534b; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .fpill { border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600; background:#fff; color:var(--sub); }
+  .fpill.hot { background:#fdecec; color:#e5534b; }
+  .frow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .fv { text-align:center; }
+  .fv b { font-size:30px; font-weight:700; letter-spacing:-.5px; }
+  .fv .u { font-size:14px; font-weight:500; margin-left:2px; }
+  .fv .fi { display:block; font-size:12px; color:var(--sub); }
+  .fbh .btn, .fbh .seg { background:#fff; }
+  .fbh .seg button.act { background:#e5534b; color:#fff; }
+  .vbar { height:6px; border-radius:3px; background:#fff; overflow:hidden; margin-top:10px; }
+  .vbar i { display:block; height:100%; width:0; background:#e5534b; transition:width .4s; }
 </style>
 
 <div class="wrap" id="wrap">
@@ -106,6 +122,12 @@
   <div class="seg-wrap" id="modesW"><div class="seg-l">Betriebsart</div><div class="seg" id="modes"></div></div>
   <div class="seg-wrap" id="fansW"><div class="seg-l">Lüfter</div><div class="seg" id="fans"></div></div>
   <div class="seg-wrap" id="vanesW"><div class="seg-l">Lamellen</div><div class="seg" id="vanes"></div></div>
+  <div class="fbh" id="fbh">
+    <div class="fh"><span class="ft"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16c0-2 2-2 2-4s-2-2-2-4M12 16c0-2 2-2 2-4s-2-2-2-4M17 16c0-2 2-2 2-4s-2-2-2-4"/></svg>Fußbodenheizung</span><span class="fpill" id="fpill"></span></div>
+    <div class="frow"><button class="btn" id="fminus" title="Kälter"></button><div class="fv"><b id="fsetv">--</b><span class="fi" id="factv"></span></div><button class="btn" id="fplus" title="Wärmer"></button></div>
+    <div class="seg" id="fmodes"></div>
+    <div class="vbar" id="fvbarw"><i id="fvbar"></i></div>
+  </div>
 </div>
 
 <div class="pop" id="info">
@@ -172,7 +194,7 @@
   const HOLD = 10000;
   const pending = {};
   const unconfirmed = {};   // Befehle ohne Bestätigung vom Gerät
-  const LABEL = { power: 'Ein/Aus', mode: 'Betriebsart', set: 'Solltemperatur', fan: 'Lüfter', vane: 'Lamellen', swing: 'Swing', lock: 'Sperre' };
+  const LABEL = { power: 'Ein/Aus', mode: 'Betriebsart', set: 'Solltemperatur', fan: 'Lüfter', vane: 'Lamellen', swing: 'Swing', lock: 'Sperre', fset: 'FBH Soll', fmode: 'FBH Betriebsart' };
   let real = { has: {} }, holdTimer = null;
   const same = (a, b) => (typeof a === 'number' && typeof b === 'number') ? Math.abs(a - b) < 0.05 : a === b;
 
@@ -221,6 +243,7 @@
     $('mlabel').textContent = s.power ? (m ? m[1] : 'Ein') : 'Aus';
     drawDial(dragVal !== null ? dragVal : s.set);
     renderChips();
+    renderFbh();
 
     seg('modes', s.has.mode,
       (s.modeList || ['heat', 'cool', 'fan']).map(k => ({ v: k, h: `<span class="ico">${MODES[k][0]}</span>${MODES[k][1]}`, a: s.mode === k })),
@@ -335,6 +358,13 @@
     if (s.lock !== null) h += r('Fernbedienung', s.lock ? 'Gesperrt' : 'Frei');
     if ((s.noFeedback || []).length) h += r('Keine Rückmeldung', s.noFeedback.map(esc).join('<br>'), 'yel');
     h += r('Ist-Temperatur', fmt(s.act) + ' °C');
+    if (s.fhas && s.fhas.any) {
+      h += '<div class="h4" style="font-size:13px;color:var(--sub);margin:14px 0 2px">Fußbodenheizung</div>';
+      if (s.fhas.set) h += r('Solltemperatur', fmt(s.fset) + ' °C');
+      if (s.fhas.act) h += r('Ist-Temperatur', fmt(s.fact) + ' °C');
+      if (s.fhas.mode) h += r('Betriebsart', FMODES[s.fmode] ? FMODES[s.fmode][1] : '–');
+      if (s.fhas.valve) h += r('Ventil', s.fvalve == null ? '–' : (s.fhas.bool ? (s.fvalve > 0 ? 'Auf' : 'Zu') : s.fvalve + ' %'));
+    }
     (s.diag || []).forEach(d => h += r(esc(d.n), esc(d.v)));
     $('ibody').innerHTML = h;
 
@@ -360,7 +390,7 @@
   };
   $('tcancel').onclick = () => $('pop').classList.remove('show');
   $('tadd').onclick = () => {
-    edit.push({ enabled: true, time: '07:00', days: [1,2,3,4,5], action: 'on', temp: s.set || 22, mode: '', fan: -1 });
+    edit.push({ enabled: true, time: '07:00', days: [1,2,3,4,5], action: 'on', temp: s.set || 22, mode: '', fan: -1, fmode: '' });
     renderTimers();
   };
   $('tsave').onclick = () => pressed('timers', () => {
@@ -394,6 +424,7 @@
           ${s.has.mode ? `<select data-k="mode">${modeOpts}</select>` : ''}
           ${s.has.fan ? `<select data-k="fan">${fanOpts}</select>` : ''}
         </div>` : ''}
+        ${s.fhas && s.fhas.mode ? `<div class="rowx">FBH <select data-k="fmode"><option value="">unverändert</option>${Object.keys(FMODES).map(k => `<option value="${k}" ${t.fmode === k ? 'selected' : ''}>${FMODES[k][1]}</option>`).join('')}</select></div>` : ''}
         <div class="rowx">${DAYS.map((n, j) =>
           `<button class="day ${t.days.includes(j + 1) ? 'sel' : ''}" data-day="${j + 1}">${n}</button>`).join('')}</div>`;
       d.querySelectorAll('[data-k]').forEach(inp => inp.onchange = () => {
@@ -504,4 +535,49 @@
     const sv = $('tsave');
     if (sv) decorate(sv, 'timers', 'Speichern');
   }
+
+  // ---------- Fußbodenheizung (nur KlimaFBH) ----------
+  const FSVG = p => '<svg viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>';
+  const FMODES = {
+    comfort: [ICON.sun, 'Komfort'],
+    standby: [FSVG('<circle cx="12" cy="12" r="8"/><path d="M12 8v4"/>'), 'Standby'],
+    night:   [FSVG('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'), 'Nacht'],
+    frost:   [ICON.snow, 'Frost']
+  };
+  $('fminus').innerHTML = $('minus').innerHTML;
+  $('fplus').innerHTML = $('plus').innerHTML;
+
+  function renderFbh() {
+    const f = s.fhas || {};
+    $('fbh').classList.toggle('show', !!f.any);
+    if (!f.any) return;
+    $('fsetv').innerHTML = s.fset == null ? '--' : fmt(s.fset) + '<span class="u">°C</span>';
+    $('factv').textContent = f.act ? 'Ist ' + fmt(s.fact) + ' °C' : '';
+    const v = s.fvalve;
+    let pill = FMODES[s.fmode] ? FMODES[s.fmode][1] : '';
+    if (f.valve && v != null) pill = v > 0 ? (f.bool ? 'Heizt' : 'Heizt · ' + v + ' %') : 'Ventil zu';
+    $('fpill').textContent = pill;
+    $('fpill').className = 'fpill' + (v > 0 ? ' hot' : '');
+    $('fvbarw').style.display = f.valve && !f.bool ? '' : 'none';
+    $('fvbar').style.width = (v || 0) + '%';
+    $('fminus').style.visibility = $('fplus').style.visibility = f.set ? '' : 'hidden';
+    const el = $('fmodes');
+    el.style.display = f.mode ? '' : 'none';
+    el.innerHTML = '';
+    if (f.mode) Object.keys(FMODES).forEach(k => {
+      const b = document.createElement('button');
+      b.innerHTML = `<span class="ico">${FMODES[k][0]}</span>${FMODES[k][1]}`;
+      if (s.fmode === k) b.className = 'act';
+      b.onclick = () => { hold('fmode', k); render(); requestAction('fmode', k); };
+      el.appendChild(b);
+    });
+  }
+
+  const fStep = d => {
+    const base = s.fset == null ? s.fmin : s.fset;
+    const v = +Math.min(s.fmax, Math.max(s.fmin, Math.round((base + d * s.fstep) / s.fstep) * s.fstep)).toFixed(1);
+    hold('fset', v); render(); requestAction('fset', v);
+  };
+  $('fminus').onclick = () => fStep(-1);
+  $('fplus').onclick = () => fStep(1);
 </script>

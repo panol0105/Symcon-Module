@@ -1,0 +1,11 @@
+{
+  "id": "{B81E4C6A-5F29-4D07-A3B8-9E2C6F1D7A50}",
+  "name": "Fussbodenheizung",
+  "type": 3,
+  "vendor": "",
+  "aliases": [],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "FBH"
+}

@@ -5,7 +5,24 @@ Module für IP-Symcon ab Version 7 (getestet für 9.x), Kachel-Visualisierung.
 - **LampenListe**: mehrere Lampen in einer Kachel als Liste (Schalten, Dimmer, Tunable White, RGBW)
 - **KlimaKachel**: ein Klima-Innengerät über das Intesis/HMS-Gateway IN776-MHI per KNX (runder Temperatur-Slider, Betriebsart, Lüfter, Lamellen, Meldungen, Fernbedienungssperre, Zeitschaltuhr)
 - **FensterTuerTor**: Fenster, Türen und Tore in einer Liste; mit Öffnen/Schließen-Adressen bedienbar, sonst nur Statusanzeige
+- **Fussbodenheizung**: Fußbodenheizung eines Raums (KNX-Raumregler) mit Drehregler, Betriebsart, Ventilanzeige, Diagramm und Zeitschaltuhr
+- **KlimaFBH**: Klimagerät und Fußbodenheizung eines Raums in einer Kachel
 - **KlimaGruppe**: mehrere KlimaKachel-Instanzen eines Raums als ein Gerät, parallel gesteuert, mit gemeinsamer Auswertung der Rückmeldungen
+
+## Fußbodenheizung (Fussbodenheizung, KlimaFBH)
+
+Geregelt wird im KNX-Raumregler. Symcon setzt Sollwert und Betriebsart und zeigt Ist-Temperatur und Ventil an.
+
+| Feld | Datentyp | Richtung |
+|---|---|---|
+| Solltemperatur Steuern / Status | DPT 9.001 | schreibend / lesend |
+| Betriebsart Steuern / Status | DPT 20.102 (1 Komfort, 2 Standby, 3 Nacht, 4 Frostschutz) | schreibend / lesend |
+| Ist-Temperatur | DPT 9.001 | lesend |
+| Stellgröße / Ventil | DPT 5.001 (Prozent) oder DPT 1.001 (Ein/Aus) | lesend |
+
+Status-Adressen sind optional; ohne Status zeigt die Kachel den zuletzt gesendeten Wert. Fehlende Rückmeldungen werden angezeigt und beim Gateway nachgefragt. Ist- und Solltemperatur werden für das Diagramm aufgezeichnet.
+
+**KlimaFBH** hat alle Funktionen der Klima-Kachel und darunter den Bereich „Fußbodenheizung“. Das Diagramm zeigt Klima- und FBH-Temperaturen, die Zeitschaltuhr kann zusätzlich die FBH-Betriebsart setzen. KlimaFBH-Instanzen lassen sich (noch) nicht in eine KlimaGruppe aufnehmen.
 
 ## Fenster, Türen und Tore
 

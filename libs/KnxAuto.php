@@ -12,7 +12,7 @@ declare(strict_types=1);
 trait KnxAuto
 {
     // "1/2/3" -> [1, 2, 3]; null bei ungültiger Adresse
-    private function knxParse(string $ga): ?array
+    protected function knxParse(string $ga): ?array
     {
         if (!preg_match('~^\s*(\d{1,2})\s*/\s*(\d{1,2})\s*/\s*(\d{1,3})\s*$~', $ga, $m)) {
             return null;
@@ -25,7 +25,7 @@ trait KnxAuto
     }
 
     // GUID des Symcon-Moduls "KNX DPT <n>" anhand des Modulnamens
-    private function knxModule(int $dpt): string
+    protected function knxModule(int $dpt): string
     {
         static $cache = [];
         if (isset($cache[$dpt])) {
@@ -40,13 +40,13 @@ trait KnxAuto
     }
 
     // Ausgewähltes KNX-Gateway (0, wenn keins ausgewählt ist)
-    private function knxGateway(int $selected): int
+    protected function knxGateway(int $selected): int
     {
         return ($selected > 1 && IPS_InstanceExists($selected)) ? $selected : 0;
     }
 
     // Anzahl automatisch angelegter Instanzen ohne Gateway-Verbindung
-    private function knxUnconnected(array $wanted): int
+    protected function knxUnconnected(array $wanted): int
     {
         $n = 0;
         foreach (array_keys($wanted) as $ident) {
@@ -59,7 +59,7 @@ trait KnxAuto
     }
 
     // Prüft vor dem Senden, ob eine eigene KNX-Variable an einem Gateway hängt
-    private function knxCanSend(int $varID): bool
+    protected function knxCanSend(int $varID): bool
     {
         $iid = IPS_GetParent($varID);
         if ($iid > 0 && IPS_InstanceExists($iid) && IPS_GetParent($iid) === $this->InstanceID
@@ -71,14 +71,14 @@ trait KnxAuto
         return true;
     }
 
-    private function knxInstance(string $ident): int
+    protected function knxInstance(string $ident): int
     {
         $id = (int)@IPS_GetObjectIDByIdent($ident, $this->InstanceID);
         return ($id > 0 && IPS_InstanceExists($id)) ? $id : 0;
     }
 
     // Variable der automatisch angelegten Instanz (0, wenn es keine gibt)
-    private function knxVar(string $ident): int
+    protected function knxVar(string $ident): int
     {
         $iid = $this->knxInstance($ident);
         if ($iid === 0) {
@@ -97,7 +97,7 @@ trait KnxAuto
      * $wanted: ident => ['ga' => '1/2/3', 'dpt' => 9, 'dim' => 1, 'write' => true, 'name' => 'Solltemperatur']
      * Rückgabe: Liste der Fehlermeldungen
      */
-    private function knxSync(array $wanted, int $selected): array
+    protected function knxSync(array $wanted, int $selected): array
     {
         $errors = [];
         $gateway = $this->knxGateway($selected);
@@ -124,7 +124,7 @@ trait KnxAuto
         return $errors;
     }
 
-    private function knxEnsure(string $ident, array $w, int $gateway): void
+    protected function knxEnsure(string $ident, array $w, int $gateway): void
     {
         $a = $this->knxParse((string)$w['ga']);
         if ($a === null) {
@@ -168,7 +168,7 @@ trait KnxAuto
     }
 
     // Prüfsumme der Wunschliste, damit nur bei Änderungen abgeglichen wird
-    private function knxHash(array $wanted, int $gateway): string
+    protected function knxHash(array $wanted, int $gateway): string
     {
         $missing = 0;
         foreach (array_keys($wanted) as $ident) {
@@ -180,7 +180,7 @@ trait KnxAuto
     }
 
     // Formular-Elemente für Gateway-Auswahl
-    private function knxGatewayElements(): array
+    protected function knxGatewayElements(): array
     {
         return [
             ['type' => 'SelectInstance', 'name' => 'KnxGateway', 'caption' => 'KNX-Gateway (für Gruppenadressen erforderlich)'],
