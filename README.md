@@ -7,6 +7,8 @@ Module für IP-Symcon ab Version 7 (getestet für 9.x), Kachel-Visualisierung.
 - **FensterTuerTor**: Fenster, Türen und Tore in einer Liste; mit Öffnen/Schließen-Adressen bedienbar, sonst nur Statusanzeige
 - **Fussbodenheizung**: Fußbodenheizung eines Raums (KNX-Raumregler) mit Drehregler, Betriebsart, Ventilanzeige, Diagramm und Zeitschaltuhr
 - **KlimaFBH**: Klimagerät und Fußbodenheizung eines Raums in einer Kachel
+- **Steckdosen**: schaltbare Steckdosen als Liste, optional mit Wirkleistung und Wirkarbeit
+- **Beschattung**: Rollläden und Jalousien mit Auf/Stopp/Ab, Schiebereglern für Position und Lamellen
 - **KlimaGruppe**: mehrere KlimaKachel-Instanzen eines Raums als ein Gerät, parallel gesteuert, mit gemeinsamer Auswertung der Rückmeldungen
 
 ## Fußbodenheizung (Fussbodenheizung, KlimaFBH)
@@ -23,6 +25,27 @@ Geregelt wird im KNX-Raumregler. Symcon setzt Sollwert und Betriebsart und zeigt
 Status-Adressen sind optional; ohne Status zeigt die Kachel den zuletzt gesendeten Wert. Fehlende Rückmeldungen werden angezeigt und beim Gateway nachgefragt. Ist- und Solltemperatur werden für das Diagramm aufgezeichnet.
 
 **KlimaFBH** hat alle Funktionen der Klima-Kachel und darunter den Bereich „Fußbodenheizung“. Das Diagramm zeigt Klima- und FBH-Temperaturen, die Zeitschaltuhr kann zusätzlich die FBH-Betriebsart setzen. KlimaFBH-Instanzen lassen sich (noch) nicht in eine KlimaGruppe aufnehmen.
+
+## Steckdosen
+
+| Spalte | Datentyp | Hinweis |
+|---|---|---|
+| GA Schalten / GA Status | DPT 1.001 | ohne Schalt-Adresse nur Anzeige |
+| GA Wirkleistung | DPT 14.056 (W) | optional, nur sichtbar wenn verknüpft |
+| GA Wirkarbeit | DPT 13.013 (kWh) | optional, nur sichtbar wenn verknüpft |
+| Nachfragen | – | Ausschalten muss bestätigt werden; „Alle aus“ lässt diese Steckdosen an |
+
+## Beschattung (Rollläden, Jalousien)
+
+| Spalte | Datentyp | Hinweis |
+|---|---|---|
+| GA Auf/Ab | DPT 1.008 (0 = auf, 1 = ab) | fehlt sie, fahren Auf/Ab über die Position |
+| GA Stopp | DPT 1.007 | Stopp / Lamellenschritt |
+| GA Position / Status | DPT 5.001 (0 % = offen, 100 % = geschlossen) | Schieberegler „Position“ |
+| GA Lamelle / Status | DPT 5.001 | nur Jalousie, Schieberegler „Lamellen“ |
+| Laufzeit | Sekunden | so lange zeigt die Kachel „Fährt auf/ab …“ |
+
+Oben in der Kachel: „Alle auf“ und „Alle ab“ sowie eine Übersicht (in Fahrt, geschlossen, offen).
 
 ## Fenster, Türen und Tore
 

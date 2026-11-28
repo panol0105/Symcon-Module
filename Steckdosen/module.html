@@ -1,0 +1,143 @@
+<style>
+  :root { --mc:#1a9a46; --txt:#2f3437; --sub:#6b7280; --cell:#eef2f8; --line:#e3e8ef;
+          --ok:#1a9a46; --okbg:#e5f5ea; --warn:#d97706; --warnbg:#fff1dc; --err:#e5534b; --errbg:#fdecec;
+          --head:48px; /* Platz für die Kopfzeile, die Symcon über jede Kachel legt */ }
+  body { margin:0; font-family: Poppins, 'Segoe UI', system-ui, sans-serif; color:var(--txt); }
+  button { font-family:inherit; }
+  .wrap { display:flex; flex-direction:column; gap:10px; height:100%; box-sizing:border-box; padding:var(--head) 14px 12px; overflow-y:auto; }
+  .bar { display:flex; align-items:center; gap:8px; }
+  .chips { flex:1; display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { border:none; border-radius:999px; padding:4px 12px; font-size:13px; font-weight:500; background:var(--cell); color:var(--sub); }
+  .chip.ok { background:var(--okbg); color:var(--ok); }
+  .chip.ok::before { content:'\25CF\00a0'; font-size:9px; vertical-align:2px; }
+  .chip.warn { background:var(--warnbg); color:var(--warn); }
+  .act-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:10px; padding:7px 12px; cursor:pointer;
+             background:#fff; color:var(--txt); font-weight:500; font-size:13px; transition:background .15s, transform .08s; flex:none; }
+  .act-btn:active { transform:scale(.96); background:#dfe6f0; }
+  .act-btn.busy { color:var(--sub); background:var(--cell); cursor:wait; }
+  .act-btn.done { background:var(--okbg); border-color:var(--okbg); color:var(--ok); }
+  .act-btn svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .spin { width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .list { display:flex; flex-direction:column; gap:8px; }
+  .row { background:var(--cell); border-radius:12px; padding:11px 14px; display:flex; align-items:center; gap:12px; }
+  .ic { width:38px; height:38px; border-radius:50%; background:#fff; color:var(--sub); display:flex; align-items:center; justify-content:center; flex:none; }
+  .row.on .ic { color:var(--ok); }
+  .ic svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .mid { flex:1; min-width:0; }
+  .name { font-size:15px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub { font-size:12px; color:var(--sub); }
+  .row.on .sub b { color:var(--txt); }
+  .sub.ask { color:var(--err); font-weight:600; }
+  .sub.warn { color:var(--warn); font-weight:500; }
+  .tgl { width:46px; height:26px; border-radius:13px; background:#cdd5e0; position:relative; flex:none; cursor:pointer; border:none; transition:background .2s; }
+  .tgl::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left .2s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+  .tgl.on { background:var(--ok); }
+  .tgl.on::after { left:23px; }
+  .tgl.ask { background:var(--err); }
+  .tgl.wait { opacity:.6; }
+  .tgl:disabled { cursor:default; opacity:.5; }
+  .empty { color:var(--sub); font-size:14px; text-align:center; padding:20px 0; }
+</style>
+
+<div class="wrap">
+  <div class="bar"><div class="chips" id="chips"></div><button class="act-btn" id="alloff"></button></div>
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+  const svg = p => '<svg viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>';
+  const ICON = {
+    plug:  svg('<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>'),
+    power: svg('<path d="M12 3v8"/><path d="M7 6.3a7 7 0 1 0 10 0"/>'),
+    check: svg('<path d="M5 12l5 5 9-10"/>')
+  };
+  const $ = id => document.getElementById(id);
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const num = (v, d) => Number(v).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  let data = { items: [] }, tick = null, allState = null;
+  const pending = {};      // i -> {v, until}: geschaltet, Bestätigung steht aus
+  const unconfirmed = {};  // i -> Zeitpunkt: keine Bestätigung vom Gerät
+  const ask = {};          // i -> Ablaufzeit der Rückfrage
+
+  function handleMessage(msg) {
+    data = typeof msg === 'string' ? JSON.parse(msg) : msg;
+    render();
+  }
+
+  // angezeigter Zustand: gesendeter Wert, bis das Gerät ihn bestätigt (höchstens 10 s)
+  function shown(it) {
+    const p = pending[it.i];
+    if (!p) return it.on;
+    if (it.on === p.v) { delete pending[it.i]; delete unconfirmed[it.i]; return it.on; }
+    if (Date.now() > p.until) { delete pending[it.i]; unconfirmed[it.i] = Date.now(); return it.on; }
+    return p.v;
+  }
+
+  function render() {
+    const list = $('list');
+    const items = data.items || [];
+    if (!items.length) { list.innerHTML = '<div class="empty">Noch keine Steckdosen eingetragen.</div>'; $('chips').innerHTML = ''; return; }
+    list.innerHTML = '';
+    let onCount = 0;
+    items.forEach(it => {
+      if (ask[it.i] && ask[it.i] < Date.now()) delete ask[it.i];
+      const on = shown(it);
+      if (on) onCount++;
+      const r = document.createElement('div');
+      r.className = 'row' + (on ? ' on' : '');
+      let sub;
+      if (ask[it.i]) sub = '<span class="sub ask">Nochmal tippen zum Ausschalten</span>';
+      else if (unconfirmed[it.i] && Date.now() - unconfirmed[it.i] < 120000) sub = '<span class="sub warn">Nicht bestätigt</span>';
+      else if (on === null) sub = '<span class="sub warn">Keine Rückmeldung</span>';
+      else {
+        const parts = [on ? '<b>An</b>' : 'Aus'];
+        if (it.hasP && it.power !== null) parts.push((on ? '<b>' : '') + num(it.power, it.power < 10 ? 1 : 0) + ' W' + (on ? '</b>' : ''));
+        if (it.hasE && it.energy !== null) parts.push(num(it.energy, 1) + ' kWh');
+        sub = parts.join(' · ');
+      }
+      r.innerHTML = `<div class="ic">${ICON.plug}</div><div class="mid"><div class="name">${esc(it.name)}</div><div class="sub">${sub}</div></div>`;
+      const t = document.createElement('button');
+      t.className = 'tgl' + (on ? ' on' : '') + (ask[it.i] ? ' ask' : '') + (pending[it.i] ? ' wait' : '');
+      t.title = on ? 'Ausschalten' : 'Einschalten';
+      t.disabled = !it.can;
+      t.onclick = () => {
+        const target = !on;
+        if (!target && it.confirm && !ask[it.i]) { ask[it.i] = Date.now() + 4000; render(); return; }   // erst nachfragen
+        delete ask[it.i];
+        pending[it.i] = { v: target, until: Date.now() + 10000 };
+        render();
+        requestAction('sw_' + it.i, target);
+      };
+      r.appendChild(t);
+      list.appendChild(r);
+    });
+
+    // Übersicht
+    const c = $('chips');
+    c.innerHTML = '';
+    const chip = (txt, cls) => { const b = document.createElement('span'); b.className = 'chip ' + cls; b.textContent = txt; c.appendChild(b); };
+    const unc = Object.keys(unconfirmed).filter(k => Date.now() - unconfirmed[k] < 120000).length;
+    if (onCount) chip(onCount + ' an' + (data.total !== null && data.total !== undefined ? ' · ' + num(data.total, 0) + ' W' : ''), 'ok');
+    else chip('Alle aus', '');
+    (data.missing || []).forEach(n => chip('Keine Rückmeldung: ' + n, 'warn'));
+    if (unc) chip(unc + ' nicht bestätigt', 'warn');
+
+    // Taste "Alle aus" (Steckdosen mit Rückfrage bleiben an)
+    const a = $('alloff');
+    a.style.display = items.some(i => i.can && !i.confirm) ? '' : 'none';
+    a.className = 'act-btn' + (allState ? ' ' + allState : '');
+    a.innerHTML = allState === 'busy' ? '<span class="spin"></span>Sendet …' : allState === 'done' ? ICON.check + 'Gesendet' : ICON.power + 'Alle aus';
+
+    clearTimeout(tick);
+    if (Object.keys(pending).length || Object.keys(ask).length || unc) tick = setTimeout(render, 500);
+  }
+
+  $('alloff').onclick = () => {
+    if (allState) return;
+    allState = 'busy'; render();
+    requestAction('all_off', true);
+    setTimeout(() => { allState = 'done'; render(); setTimeout(() => { allState = null; render(); }, 1500); }, 700);
+  };
+</script>

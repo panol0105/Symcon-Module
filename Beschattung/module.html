@@ -1,0 +1,204 @@
+<style>
+  :root { --mc:#2563eb; --txt:#2f3437; --sub:#6b7280; --cell:#eef2f8; --line:#e3e8ef;
+          --ok:#1a9a46; --okbg:#e5f5ea; --warn:#d97706; --warnbg:#fff1dc;
+          --head:48px; /* Platz für die Kopfzeile, die Symcon über jede Kachel legt */ }
+  body { margin:0; font-family: Poppins, 'Segoe UI', system-ui, sans-serif; color:var(--txt); }
+  button { font-family:inherit; }
+  .wrap { display:flex; flex-direction:column; gap:10px; height:100%; box-sizing:border-box; padding:var(--head) 14px 12px; overflow-y:auto; }
+  .bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .chips { flex:1; display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { border:none; border-radius:999px; padding:4px 12px; font-size:13px; font-weight:500; background:var(--cell); color:var(--sub); }
+  .chip.ok { background:var(--okbg); color:var(--ok); }
+  .chip.ok::before { content:'\25CF\00a0'; font-size:9px; vertical-align:2px; }
+  .chip.move { background:#e3ecfd; color:var(--mc); }
+  .chip.warn { background:var(--warnbg); color:var(--warn); }
+  .cb { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--line); border-radius:10px;
+        padding:8px 12px; cursor:pointer; background:#fff; color:var(--txt); font-weight:500; font-size:13px;
+        transition:background .15s, color .15s, transform .08s; }
+  .cb:hover { background:#f6f8fb; }
+  .cb:active { transform:scale(.95); background:#dfe6f0; }
+  .cb.active { border-color:var(--mc); color:var(--mc); }
+  .cb.busy { color:var(--sub); background:var(--cell); cursor:wait; }
+  .cb.done { background:var(--okbg); border-color:var(--okbg); color:var(--ok); }
+  .cb svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .spin { width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .list { display:flex; flex-direction:column; gap:8px; }
+  .row { background:var(--cell); border-radius:12px; padding:11px 14px; position:relative; overflow:hidden; }
+  .head { display:flex; align-items:center; gap:12px; }
+  .ic { width:38px; height:38px; border-radius:10px; background:#fff; flex:none; display:flex; align-items:center; justify-content:center; }
+  .ic svg { width:24px; height:24px; }
+  .mid { flex:1; min-width:0; }
+  .name { font-size:15px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub { font-size:12px; color:var(--sub); }
+  .pill { border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600; white-space:nowrap; background:#fff; color:var(--sub); }
+  .pill.move { background:#e3ecfd; color:var(--mc); }
+  .sl { display:flex; align-items:center; gap:10px; margin-top:10px; font-size:12px; color:var(--sub); }
+  .sl label { width:62px; flex:none; }
+  .sl span { width:44px; text-align:right; font-weight:600; color:var(--txt); flex:none; }
+  input[type=range] { flex:1; accent-color:var(--mc); height:22px; cursor:pointer; }
+  .ctl { display:flex; gap:8px; margin-top:10px; }
+  .ctl .cb { flex:1; }
+  .pbar { position:absolute; left:0; bottom:0; height:3px; background:var(--mc); transition:width .5s linear; }
+  .empty { color:var(--sub); font-size:14px; text-align:center; padding:20px 0; }
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <div class="chips" id="chips"></div>
+    <button class="cb" id="allup"></button>
+    <button class="cb" id="alldown"></button>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+  const svg = p => '<svg viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>';
+  const ICON = {
+    up:    svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
+    down:  svg('<path d="M12 5v14M6 13l6 6 6-6"/>'),
+    stop:  svg('<rect x="7" y="7" width="10" height="10" rx="1.5"/>'),
+    check: svg('<path d="M5 12l5 5 9-10"/>')
+  };
+  const $ = id => document.getElementById(id);
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  let data = { items: [] }, received = 0, tick = null, dragging = false;
+  const local = {};   // i -> {pos?, slat?, until}: gewählter Wert, bis der Status ihn meldet
+  const press = {};   // Tasten-Rückmeldung: key -> 'busy' | 'done'
+
+  function handleMessage(msg) {
+    data = typeof msg === 'string' ? JSON.parse(msg) : msg;
+    received = Date.now();
+    if (!dragging) render();
+  }
+
+  // Fensterbild mit Behang: Füllhöhe = Position
+  function shade(pos, kind) {
+    const h = Math.round(16 * (pos == null ? 0 : pos) / 100);
+    let slats = '';
+    if (kind === 'blind') for (let y = 5; y < 4 + h; y += 3) slats += `<line x1="5" x2="19" y1="${y}" y2="${y}" stroke="#fff" stroke-width=".8"/>`;
+    return `<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1.5" fill="#dbe7fb" stroke="#9aa5b4" stroke-width="1.4"/>`
+         + (h ? `<rect x="4.7" y="3.7" width="14.6" height="${h}" fill="${pos >= 98 ? '#52606d' : '#7a8794'}"/>` : '') + slats
+         + `<line x1="3" x2="21" y1="3" y2="3" stroke="#52606d" stroke-width="1.6"/></svg>`;
+  }
+
+  function posText(p) {
+    if (p == null) return 'Keine Rückmeldung';
+    if (p <= 2) return 'Offen';
+    if (p >= 98) return 'Geschlossen';
+    return p + ' % geschlossen';
+  }
+
+  function motion(it) {
+    if (!it.moving || it.age == null) return null;
+    const el = it.age + (Date.now() - received) / 1000;
+    return el < it.run ? { dir: it.moving, p: el / it.run } : null;
+  }
+
+  function render() {
+    const list = $('list'), items = data.items || [];
+    if (!items.length) { list.innerHTML = '<div class="empty">Noch keine Rollläden oder Jalousien eingetragen.</div>'; $('chips').innerHTML = ''; return; }
+    list.innerHTML = '';
+    let closed = 0, open = 0, moving = 0;
+    items.forEach(it => {
+      // gewählte Werte halten, bis der Status sie bestätigt
+      const lp = local[it.i];
+      if (lp) {
+        if (Date.now() > lp.until) delete local[it.i];
+        else {
+          if (lp.pos != null && it.pos != null && Math.abs(it.pos - lp.pos) <= 2) delete lp.pos;
+          if (lp.slat != null && it.slat != null && Math.abs(it.slat - lp.slat) <= 2) delete lp.slat;
+          if (lp.pos == null && lp.slat == null) delete local[it.i];
+        }
+      }
+      const pos = local[it.i] && local[it.i].pos != null ? local[it.i].pos : it.pos;
+      const slat = local[it.i] && local[it.i].slat != null ? local[it.i].slat : it.slat;
+      const mv = motion(it);
+      if (mv) moving++; else if (it.pos != null && it.pos >= 98) closed++; else if (it.pos != null && it.pos <= 2) open++;
+
+      const r = document.createElement('div');
+      r.className = 'row';
+      const pill = mv ? `<span class="pill move">${mv.dir === 'up' ? 'Fährt auf …' : 'Fährt ab …'}</span>` : '';
+      r.innerHTML = `<div class="head"><div class="ic">${shade(it.pos, it.kind)}</div>
+        <div class="mid"><div class="name">${esc(it.name)}</div><div class="sub">${it.kind === 'blind' ? 'Jalousie' : 'Rollladen'} · ${it.hasPos ? posText(it.pos) : 'ohne Rückmeldung'}</div></div>${pill}</div>`;
+
+      if (it.canPos) r.appendChild(slider(it, 'pos', 'Position', pos));
+      if (it.kind === 'blind' && it.canSlat) r.appendChild(slider(it, 'slat', 'Lamellen', slat));
+
+      if (it.canMove || it.canStop) {
+        const ctl = document.createElement('div');
+        ctl.className = 'ctl';
+        if (it.canMove) ctl.appendChild(button('up_' + it.i, ICON.up, 'Auf', mv && mv.dir === 'up'));
+        if (it.canStop) ctl.appendChild(button('stop_' + it.i, ICON.stop, 'Stopp', false));
+        if (it.canMove) ctl.appendChild(button('down_' + it.i, ICON.down, 'Ab', mv && mv.dir === 'down'));
+        r.appendChild(ctl);
+      }
+      if (mv) {
+        const b = document.createElement('div');
+        b.className = 'pbar';
+        b.style.width = Math.round(mv.p * 100) + '%';
+        r.appendChild(b);
+      }
+      list.appendChild(r);
+    });
+
+    const c = $('chips');
+    c.innerHTML = '';
+    const chip = (t, cls) => { const s = document.createElement('span'); s.className = 'chip ' + cls; s.textContent = t; c.appendChild(s); };
+    if (moving) chip(moving + ' in Fahrt', 'move');
+    if (closed) chip(closed + ' geschlossen', '');
+    if (open) chip(open + ' offen', 'ok');
+    (data.missing || []).forEach(n => chip('Keine Rückmeldung: ' + n, 'warn'));
+
+    const canAll = items.some(i => i.canMove);
+    $('allup').style.display = $('alldown').style.display = canAll ? '' : 'none';
+    decorate($('allup'), 'all_up', ICON.up + 'Alle auf');
+    decorate($('alldown'), 'all_down', ICON.down + 'Alle ab');
+
+    clearTimeout(tick);
+    if (moving || Object.keys(local).length || Object.keys(press).length) tick = setTimeout(() => { if (!dragging) render(); }, 500);
+  }
+
+  // Schieberegler: Wert erst beim Loslassen senden
+  function slider(it, kind, label, value) {
+    const d = document.createElement('div');
+    d.className = 'sl';
+    d.innerHTML = `<label>${label}</label><input type="range" min="0" max="100" step="1" value="${value == null ? 0 : value}"><span>${value == null ? '–' : value + ' %'}</span>`;
+    const inp = d.querySelector('input'), out = d.querySelector('span');
+    inp.oninput = () => { dragging = true; out.textContent = inp.value + ' %'; };
+    inp.onchange = () => {
+      dragging = false;
+      const v = Number(inp.value);
+      local[it.i] = Object.assign(local[it.i] || {}, { [kind]: v, until: Date.now() + Math.max(10, it.run) * 1000 });
+      requestAction(kind + '_' + it.i, v);
+      render();
+    };
+    return d;
+  }
+
+  function decorate(b, key, html) {
+    const st = press[key];
+    b.className = 'cb' + (st ? ' ' + st : '');
+    b.innerHTML = st === 'busy' ? '<span class="spin"></span>Sendet …' : st === 'done' ? ICON.check + 'Gesendet' : html;
+  }
+
+  function button(key, icon, label, active) {
+    const b = document.createElement('button');
+    decorate(b, key, icon + label);
+    if (active && !press[key]) b.classList.add('active');
+    b.onclick = () => send(key);
+    return b;
+  }
+
+  function send(key) {
+    if (press[key]) return;
+    press[key] = 'busy';
+    render();
+    requestAction(key, true);
+    setTimeout(() => { press[key] = 'done'; render(); setTimeout(() => { delete press[key]; render(); }, 1200); }, 600);
+  }
+
+  $('allup').onclick = () => send('all_up');
+  $('alldown').onclick = () => send('all_down');
+</script>

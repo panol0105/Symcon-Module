@@ -1,0 +1,11 @@
+{
+  "id": "{8D1F5A3C-2E79-4B60-9C4D-7A2E8F1B3C95}",
+  "name": "Beschattung",
+  "type": 3,
+  "vendor": "",
+  "aliases": [],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "BS"
+}
